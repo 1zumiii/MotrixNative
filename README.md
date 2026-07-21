@@ -58,6 +58,17 @@ The development app bundle is written to:
 MotrixNative/.build/app/Motrix Native.app
 ```
 
+## Source layout
+
+The executable target follows an MVC-oriented layout under `Sources/MotrixNative`:
+
+- `Models`: application state and persisted configuration.
+- `Views`: SwiftUI/AppKit views, status icons, and user-facing dialogs.
+- `Controllers`: application lifecycle, windows, status menu, and adaptive task coordination.
+- `Services`: aria2 RPC/process/logging and macOS system integrations.
+- `Utilities`: stateless formatting and tracker parsing helpers.
+- `main.swift`: executable entry point and self-check command.
+
 ## Notes
 
 The packaged app is self-contained. Removing the original Motrix app does not remove Motrix Native's engine or settings. Launch Motrix Native once before deleting Motrix data so the one-time configuration and session migration can complete.
