@@ -27,6 +27,7 @@ if CommandLine.arguments.contains("--self-check") {
     connections: 0,
     pieceLength: 1,
     numPieces: 1,
+    bitfield: "8",
     errorCode: "0",
     errorMessage: "",
     directory: "/tmp/downloads",
@@ -38,6 +39,7 @@ if CommandLine.arguments.contains("--self-check") {
   )
   let controlFileMappingReady = CompletedControlFileCleaner.controlFiles(for: syntheticTorrent)
     .contains(URL(fileURLWithPath: "/tmp/downloads/Example.aria2"))
+  let pieceBitfieldReady = syntheticTorrent.pieceCompletion == [true]
   let result: [String: Any] = [
     "aria2Binary": config.aria2BinaryPath?.path ?? "",
     "aria2BinaryReady": binaryReady,
@@ -52,12 +54,13 @@ if CommandLine.arguments.contains("--self-check") {
     "session": config.sessionPath.path,
     "supportDirectory": config.supportDirectory.path,
     "supportDirectoryReady": supportReady,
-    "controlFileMappingReady": controlFileMappingReady
+    "controlFileMappingReady": controlFileMappingReady,
+    "pieceBitfieldReady": pieceBitfieldReady
   ]
   let data = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
   FileHandle.standardOutput.write(data)
   FileHandle.standardOutput.write(Data("\n".utf8))
-  exit(binaryReady && configReady && supportReady && controlFileMappingReady && seedingDisableReady && adaptiveStartReady ? 0 : 1)
+  exit(binaryReady && configReady && supportReady && controlFileMappingReady && pieceBitfieldReady && seedingDisableReady && adaptiveStartReady ? 0 : 1)
 }
 
 let app = NSApplication.shared

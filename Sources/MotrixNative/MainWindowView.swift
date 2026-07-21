@@ -362,6 +362,7 @@ private struct PreferencesView: View {
         .padding(.trailing, 10)
         .padding(.bottom, 24)
       }
+      .scrollIndicators(.hidden)
 
       Divider()
 
@@ -972,6 +973,10 @@ private struct TaskDetailView: View {
         VStack(alignment: .leading, spacing: 20) {
           progressSection
 
+          if task.numPieces > 0 {
+            pieceMapSection
+          }
+
           HStack(alignment: .top, spacing: 18) {
             DetailSection(title: "传输") {
               DetailRow(title: "下载速度", value: Formatting.speed(task.downloadSpeed))
@@ -1169,6 +1174,12 @@ private struct TaskDetailView: View {
     return String(format: "%.2f", Double(task.uploadLength) / Double(task.completedLength))
   }
 
+  private var pieceMapSection: some View {
+    DetailSection(title: "数据块分布") {
+      PieceMapView(task: task)
+    }
+  }
+
   private func effectiveOption(_ key: String) -> String {
     model.selectedTaskOptions[key] ?? "读取中..."
   }
@@ -1280,6 +1291,116 @@ private struct DetailDivider: View {
   var body: some View {
     Divider()
       .padding(.leading, 14)
+  }
+}
+
+private struct PieceMapView: View {
+  let task: Aria2Task
+
+  private let cellSize: CGFloat = 9
+  private let spacing: CGFloat = 3
+  private let maximumSamples = 480
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 11) {
+      if samples.isEmpty {
+        Text("aria2 暂未提供数据块状态")
+          .font(.system(size: 12))
+          .foregroundStyle(.secondary)
+      } else {
+        Canvas { context, _ in
+          for (index, ratio) in samples.enumerated() {
+            let column = index % columnCount
+            let row = index / columnCount
+            let origin = CGPoint(
+              x: CGFloat(column) * (cellSize + spacing),
+              y: CGFloat(row) * (cellSize + spacing)
+            )
+            let rect = CGRect(origin: origin, size: CGSize(width: cellSize, height: cellSize))
+            context.fill(
+              Path(roundedRect: rect, cornerRadius: 2),
+              with: .color(color(for: ratio))
+            )
+          }
+        }
+        .frame(width: mapWidth, height: mapHeight)
+        .accessibilityLabel("数据块完成分布")
+        .accessibilityValue("已完成 \(completedPieceCount) 个，共 \(task.numPieces) 个")
+
+        HStack(spacing: 16) {
+          PieceLegend(color: .teal, title: "已完成")
+          PieceLegend(color: Color.primary.opacity(0.1), title: "未完成")
+          if task.numPieces > maximumSamples {
+            PieceLegend(color: .teal.opacity(0.46), title: "混合区块")
+          }
+          Spacer()
+          Text("\(completedPieceCount) / \(task.numPieces)")
+            .font(.system(size: 11, weight: .medium, design: .rounded))
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
+        }
+      }
+    }
+    .padding(.horizontal, 14)
+    .padding(.vertical, 12)
+  }
+
+  private var completedPieceCount: Int {
+    task.pieceCompletion.filter { $0 }.count
+  }
+
+  private var samples: [Double] {
+    let pieces = task.pieceCompletion
+    guard pieces.count == task.numPieces, !pieces.isEmpty else { return [] }
+
+    let sampleCount = min(maximumSamples, pieces.count)
+    return (0..<sampleCount).map { index in
+      let start = index * pieces.count / sampleCount
+      let end = max(start + 1, (index + 1) * pieces.count / sampleCount)
+      let completed = pieces[start..<end].reduce(0) { $0 + ($1 ? 1 : 0) }
+      return Double(completed) / Double(end - start)
+    }
+  }
+
+  private var columnCount: Int {
+    guard !samples.isEmpty else { return 1 }
+    let preferred = Int(ceil(sqrt(Double(samples.count) * 4)))
+    return min(samples.count, min(48, max(16, preferred)))
+  }
+
+  private var rowCount: Int {
+    guard !samples.isEmpty else { return 1 }
+    return Int(ceil(Double(samples.count) / Double(columnCount)))
+  }
+
+  private var mapWidth: CGFloat {
+    CGFloat(columnCount) * cellSize + CGFloat(max(0, columnCount - 1)) * spacing
+  }
+
+  private var mapHeight: CGFloat {
+    CGFloat(rowCount) * cellSize + CGFloat(max(0, rowCount - 1)) * spacing
+  }
+
+  private func color(for ratio: Double) -> Color {
+    if ratio >= 1 { return .teal }
+    if ratio <= 0 { return Color.primary.opacity(0.1) }
+    return .teal.opacity(0.3 + ratio * 0.5)
+  }
+}
+
+private struct PieceLegend: View {
+  let color: Color
+  let title: String
+
+  var body: some View {
+    HStack(spacing: 5) {
+      RoundedRectangle(cornerRadius: 1.5)
+        .fill(color)
+        .frame(width: 8, height: 8)
+      Text(title)
+        .font(.system(size: 10))
+        .foregroundStyle(.secondary)
+    }
   }
 }
 

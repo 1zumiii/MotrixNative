@@ -11,6 +11,7 @@ struct Aria2Task: Identifiable {
   let connections: Int
   let pieceLength: Int64
   let numPieces: Int
+  let bitfield: String
   let errorCode: String
   let errorMessage: String
   let directory: String
@@ -99,6 +100,25 @@ struct Aria2Task: Identifiable {
     isBitTorrent && status == "active" && totalLength > 0 && completedLength >= totalLength
   }
 
+  var pieceCompletion: [Bool] {
+    guard numPieces > 0, !bitfield.isEmpty else { return [] }
+
+    var result: [Bool] = []
+    result.reserveCapacity(numPieces)
+    for character in bitfield {
+      guard let nibble = Int(String(character), radix: 16) else { return [] }
+      for shift in stride(from: 3, through: 0, by: -1) {
+        result.append((nibble & (1 << shift)) != 0)
+        if result.count == numPieces { return result }
+      }
+    }
+
+    if result.count < numPieces {
+      result.append(contentsOf: repeatElement(false, count: numPieces - result.count))
+    }
+    return result
+  }
+
   var localizedStatus: String {
     if isSeeding {
       return "做种中"
@@ -127,6 +147,7 @@ struct Aria2Task: Identifiable {
       connections: connections,
       pieceLength: pieceLength,
       numPieces: numPieces,
+      bitfield: bitfield,
       errorCode: errorCode,
       errorMessage: errorMessage,
       directory: directory,
@@ -160,6 +181,7 @@ struct Aria2Task: Identifiable {
       connections: Int(dictionary["connections"] as? String ?? "0") ?? 0,
       pieceLength: Int64(dictionary["pieceLength"] as? String ?? "0") ?? 0,
       numPieces: Int(dictionary["numPieces"] as? String ?? "0") ?? 0,
+      bitfield: dictionary["bitfield"] as? String ?? "",
       errorCode: dictionary["errorCode"] as? String ?? "0",
       errorMessage: dictionary["errorMessage"] as? String ?? "",
       directory: dictionary["dir"] as? String ?? "",
