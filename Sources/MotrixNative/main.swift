@@ -40,6 +40,12 @@ if CommandLine.arguments.contains("--self-check") {
   let controlFileMappingReady = CompletedControlFileCleaner.controlFiles(for: syntheticTorrent)
     .contains(URL(fileURLWithPath: "/tmp/downloads/Example.aria2"))
   let pieceBitfieldReady = syntheticTorrent.pieceCompletion == [true]
+  let trackerNormalizationReady = TrackerList.aria2Value(
+    from: "udp://tracker.example:80/announce\nhttps://tracker.example/announce\nwss://unsupported.example/announce"
+  ) == "udp://tracker.example:80/announce,https://tracker.example/announce"
+  let configuredTrackerValue = config.systemConfig["bt-tracker"] as? String ?? ""
+  let configuredTrackerArgument = config.aria2StartArguments().first { $0.hasPrefix("--bt-tracker=") } ?? ""
+  let configuredTrackerArgumentReady = !configuredTrackerArgument.contains("\n") && !configuredTrackerArgument.contains("wss://")
   let result: [String: Any] = [
     "aria2Binary": config.aria2BinaryPath?.path ?? "",
     "aria2BinaryReady": binaryReady,
@@ -55,12 +61,16 @@ if CommandLine.arguments.contains("--self-check") {
     "supportDirectory": config.supportDirectory.path,
     "supportDirectoryReady": supportReady,
     "controlFileMappingReady": controlFileMappingReady,
-    "pieceBitfieldReady": pieceBitfieldReady
+    "pieceBitfieldReady": pieceBitfieldReady,
+    "trackerNormalizationReady": trackerNormalizationReady,
+    "configuredTrackerArgumentReady": configuredTrackerArgumentReady,
+    "configuredTrackerCount": TrackerList.supportedEntries(from: configuredTrackerValue).count,
+    "ignoredTrackerCount": TrackerList.unsupportedEntries(from: configuredTrackerValue).count
   ]
   let data = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
   FileHandle.standardOutput.write(data)
   FileHandle.standardOutput.write(Data("\n".utf8))
-  exit(binaryReady && configReady && supportReady && controlFileMappingReady && pieceBitfieldReady && seedingDisableReady && adaptiveStartReady ? 0 : 1)
+  exit(binaryReady && configReady && supportReady && controlFileMappingReady && pieceBitfieldReady && trackerNormalizationReady && configuredTrackerArgumentReady && seedingDisableReady && adaptiveStartReady ? 0 : 1)
 }
 
 let app = NSApplication.shared

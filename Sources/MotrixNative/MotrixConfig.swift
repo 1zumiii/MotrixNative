@@ -200,6 +200,11 @@ struct MotrixConfig {
   }
 
   private static func argument(key: String, value: Any) -> String? {
+    if key == "bt-tracker", let rawValue = value as? String {
+      let normalized = TrackerList.aria2Value(from: rawValue)
+      return normalized.isEmpty ? nil : "--bt-tracker=\(normalized)"
+    }
+
     if numericAria2Options.contains(key) {
       guard let value = numericString(value) else {
         return nil

@@ -573,7 +573,7 @@ private struct PreferencesView: View {
           .opacity(model.settings.seedingEnabled ? 1 : 0.45)
       }
 
-      PreferenceGroup(title: "Tracker 服务器", footer: "支持使用逗号或换行分隔服务器地址。") {
+      PreferenceGroup(title: "Tracker 服务器", footer: trackerFooter) {
         Button {
           withAnimation(.easeInOut(duration: 0.18)) {
             trackerExpanded.toggle()
@@ -586,7 +586,7 @@ private struct PreferencesView: View {
               Text("自定义 Tracker 列表")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(.primary)
-              Text(trackerCount == 0 ? "未配置服务器" : "已配置 \(trackerCount) 个服务器")
+              Text(trackerSummary)
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
             }
@@ -663,10 +663,24 @@ private struct PreferencesView: View {
   }
 
   private var trackerCount: Int {
-    model.settings.btTracker
-      .split { $0 == "," || $0 == "\n" }
-      .filter { !String($0).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-      .count
+    TrackerList.supportedEntries(from: model.settings.btTracker).count
+  }
+
+  private var unsupportedTrackerCount: Int {
+    TrackerList.unsupportedEntries(from: model.settings.btTracker).count
+  }
+
+  private var trackerSummary: String {
+    if trackerCount == 0, unsupportedTrackerCount == 0 { return "未配置服务器" }
+    if unsupportedTrackerCount > 0 { return "已识别 \(trackerCount) 个，忽略 \(unsupportedTrackerCount) 个" }
+    return "已配置 \(trackerCount) 个服务器"
+  }
+
+  private var trackerFooter: String {
+    if unsupportedTrackerCount > 0 {
+      return "已忽略 \(unsupportedTrackerCount) 个 aria2 不支持的地址；支持 HTTP、HTTPS 和 UDP，使用逗号或换行分隔。"
+    }
+    return "支持 HTTP、HTTPS 和 UDP Tracker，使用逗号或换行分隔。"
   }
 
   private func preferenceToggle(
