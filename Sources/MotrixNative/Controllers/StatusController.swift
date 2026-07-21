@@ -100,30 +100,30 @@ final class StatusController: NSObject, NSMenuDelegate {
     menu.addItem(NSMenuItem.separator())
 
     if let lastError {
-      menu.addItem(menuItem(title: "重新连接下载引擎", systemImage: "arrow.clockwise", action: #selector(retry), keyEquivalent: "r"))
+      menu.addItem(menuItem(title: L10n.tr("status_menu.reconnect_engine"), systemImage: "arrow.clockwise", action: #selector(retry), keyEquivalent: "r"))
       let errorItem = NSMenuItem(title: lastError, action: nil, keyEquivalent: "")
       errorItem.isEnabled = false
       menu.addItem(errorItem)
     } else if tasks.isEmpty {
-      let empty = menuItem(title: "暂无下载任务", systemImage: "tray", action: nil)
+      let empty = menuItem(title: L10n.tr("status_menu.no_tasks"), systemImage: "tray", action: nil)
       empty.isEnabled = false
       menu.addItem(empty)
     } else {
-      menu.addItem(sectionHeader("最近任务"))
+      menu.addItem(sectionHeader(L10n.tr("status_menu.recent_tasks")))
       for task in tasks.prefix(6) {
         menu.addItem(taskMenuItem(task))
       }
     }
 
     menu.addItem(NSMenuItem.separator())
-    menu.addItem(sectionHeader("快捷操作"))
-    menu.addItem(menuItem(title: "打开 Motrix Native", systemImage: "macwindow", action: #selector(openMainWindow), keyEquivalent: "m"))
-    menu.addItem(menuItem(title: "新建下载...", systemImage: "plus.circle", action: #selector(openAddTask), keyEquivalent: "n"))
-    menu.addItem(menuItem(title: "打开下载目录", systemImage: "folder", action: #selector(openDownloadDirectory), keyEquivalent: "o"))
-    menu.addItem(menuItem(title: "偏好设置...", systemImage: "gearshape", action: #selector(openPreferences), keyEquivalent: ","))
+    menu.addItem(sectionHeader(L10n.tr("status_menu.quick_actions")))
+    menu.addItem(menuItem(title: L10n.tr("status_menu.open_app"), systemImage: "macwindow", action: #selector(openMainWindow), keyEquivalent: "m"))
+    menu.addItem(menuItem(title: L10n.tr("status_menu.new_download"), systemImage: "plus.circle", action: #selector(openAddTask), keyEquivalent: "n"))
+    menu.addItem(menuItem(title: L10n.tr("status_menu.open_downloads"), systemImage: "folder", action: #selector(openDownloadDirectory), keyEquivalent: "o"))
+    menu.addItem(menuItem(title: L10n.tr("status_menu.preferences"), systemImage: "gearshape", action: #selector(openPreferences), keyEquivalent: ","))
     menu.addItem(engineMenuItem())
     menu.addItem(NSMenuItem.separator())
-    menu.addItem(NSMenuItem(title: "退出 Motrix Native", action: #selector(quit), keyEquivalent: "q", target: self))
+    menu.addItem(NSMenuItem(title: L10n.tr("status_menu.quit"), action: #selector(quit), keyEquivalent: "q", target: self))
   }
 
   private func headerItem() -> NSMenuItem {
@@ -134,26 +134,28 @@ final class StatusController: NSObject, NSMenuDelegate {
     let progress: Double?
 
     if lastError != nil {
-      state = "下载引擎未连接"
-      detail = "可以从下方重新连接或查看诊断信息"
+      state = L10n.tr("status_menu.engine_disconnected")
+      detail = L10n.tr("status_menu.engine_disconnected.detail")
       progress = nil
     } else if !downloading.isEmpty {
-      state = "正在下载 \(downloading.count) 个任务"
+      state = L10n.format("status_menu.downloading_tasks", String(downloading.count))
       let percent = progressSummary?.percent ?? 0
-      detail = "\(Formatting.speed(globalStat.downloadSpeed))  ·  整体进度 \(percent)%"
+      detail = L10n.format("status_menu.download_progress", Formatting.speed(globalStat.downloadSpeed), String(percent))
       progress = progressSummary?.progress
     } else if !seeding.isEmpty {
-      state = "正在做种 \(seeding.count) 个任务"
-      detail = "上传 \(Formatting.speed(globalStat.uploadSpeed))"
+      state = L10n.format("status_menu.seeding_tasks", String(seeding.count))
+      detail = L10n.format("status_menu.upload_speed", Formatting.speed(globalStat.uploadSpeed))
       progress = nil
     } else if globalStat.waiting > 0 {
-      state = "有 \(globalStat.waiting) 个任务等待中"
-      detail = "打开主窗口可以调整任务顺序和状态"
+      state = L10n.format("status_menu.waiting_tasks", String(globalStat.waiting))
+      detail = L10n.tr("status_menu.waiting.detail")
       progress = nil
     } else {
       let completed = tasks.filter { $0.status == "complete" }.count
-      state = engine.statusText == "RPC 已连接" ? "下载引擎已连接" : engine.statusText
-      detail = completed > 0 ? "最近有 \(completed) 个已完成任务" : "暂无进行中的任务"
+      state = engine.statusText == L10n.tr("engine.rpc_connected") ? L10n.tr("status_menu.engine_connected") : engine.statusText
+      detail = completed > 0
+        ? L10n.format("status_menu.recent_completed_tasks", String(completed))
+        : L10n.tr("status_menu.no_active_tasks")
       progress = nil
     }
 
@@ -233,15 +235,19 @@ final class StatusController: NSObject, NSMenuDelegate {
 
   private func statusTooltip() -> String {
     if let lastError {
-      return "Motrix Native: RPC 未连接\n\(lastError)"
+      return L10n.format("status_tooltip.rpc_disconnected", lastError)
     }
 
     if !unreadCompletedTaskIDs.isEmpty {
-      return "Motrix Native: \(unreadCompletedTaskIDs.count) 个任务下载完成"
+      return L10n.format("status_tooltip.completed_tasks", String(unreadCompletedTaskIDs.count))
     }
 
     if let progressSummary, progressSummary.hasIncompleteTasks {
-      return "Motrix Native: \(progressSummary.taskCount) 个任务，整体进度 \(progressSummary.percent)%"
+      return L10n.format(
+        "status_tooltip.task_progress",
+        String(progressSummary.taskCount),
+        String(progressSummary.percent)
+      )
     }
 
     return "Motrix Native"
@@ -276,25 +282,29 @@ final class StatusController: NSObject, NSMenuDelegate {
 
   private func engineStatusItem() -> NSMenuItem {
     let error = engine.lastError.map { " (\($0))" } ?? ""
-    let item = NSMenuItem(title: "引擎 \(engine.statusText)\(error)", action: nil, keyEquivalent: "")
+    let item = NSMenuItem(title: L10n.format("status_menu.engine_status", engine.statusText, error), action: nil, keyEquivalent: "")
     item.isEnabled = false
     return item
   }
 
   private func engineMenuItem() -> NSMenuItem {
-    let item = menuItem(title: "引擎与诊断", systemImage: "bolt.horizontal.circle", action: nil)
+    let item = menuItem(title: L10n.tr("status_menu.engine_and_diagnostics"), systemImage: "bolt.horizontal.circle", action: nil)
     let submenu = NSMenu()
     submenu.addItem(engineStatusItem())
-    let adaptiveItem = NSMenuItem(title: "智能并发 \(adaptiveController.statusText)", action: nil, keyEquivalent: "")
+    let adaptiveItem = NSMenuItem(
+      title: L10n.format("status_menu.adaptive_status", adaptiveController.statusText),
+      action: nil,
+      keyEquivalent: ""
+    )
     adaptiveItem.isEnabled = false
     submenu.addItem(adaptiveItem)
     submenu.addItem(NSMenuItem.separator())
-    submenu.addItem(NSMenuItem(title: "刷新状态", action: #selector(refreshNow), keyEquivalent: "r", target: self))
-    submenu.addItem(NSMenuItem(title: "重启下载引擎", action: #selector(restartEngine), keyEquivalent: "", target: self))
-    submenu.addItem(NSMenuItem(title: "引擎信息", action: #selector(showEngineInfo), keyEquivalent: "i", target: self))
+    submenu.addItem(NSMenuItem(title: L10n.tr("status_menu.refresh_status"), action: #selector(refreshNow), keyEquivalent: "r", target: self))
+    submenu.addItem(NSMenuItem(title: L10n.tr("status_menu.restart_engine"), action: #selector(restartEngine), keyEquivalent: "", target: self))
+    submenu.addItem(NSMenuItem(title: L10n.tr("status_menu.engine_info"), action: #selector(showEngineInfo), keyEquivalent: "i", target: self))
     submenu.addItem(NSMenuItem.separator())
-    submenu.addItem(NSMenuItem(title: "打开配置目录", action: #selector(openConfigDirectory), keyEquivalent: "", target: self))
-    submenu.addItem(NSMenuItem(title: "打开 aria2 日志", action: #selector(openAria2Log), keyEquivalent: "", target: self))
+    submenu.addItem(NSMenuItem(title: L10n.tr("status_menu.open_config"), action: #selector(openConfigDirectory), keyEquivalent: "", target: self))
+    submenu.addItem(NSMenuItem(title: L10n.tr("status_menu.open_log"), action: #selector(openAria2Log), keyEquivalent: "", target: self))
     item.submenu = submenu
     return item
   }
@@ -326,7 +336,7 @@ final class StatusController: NSObject, NSMenuDelegate {
     let item = menuItem(title: taskTitle(task), systemImage: taskImageName(task), action: nil)
     let submenu = NSMenu()
 
-    submenu.addItem(NSMenuItem(title: "查看任务详情", action: #selector(openTaskDetails(_:)), keyEquivalent: "", target: self, representedObject: task.id))
+    submenu.addItem(NSMenuItem(title: L10n.tr("task.action.details"), action: #selector(openTaskDetails(_:)), keyEquivalent: "", target: self, representedObject: task.id))
     submenu.addItem(NSMenuItem.separator())
     let detail = NSMenuItem(title: taskDetail(task), action: nil, keyEquivalent: "")
     detail.isEnabled = false
@@ -334,17 +344,17 @@ final class StatusController: NSObject, NSMenuDelegate {
     submenu.addItem(NSMenuItem.separator())
 
     if task.status == "active" {
-      submenu.addItem(NSMenuItem(title: "暂停", action: #selector(pauseTask(_:)), keyEquivalent: "", target: self, representedObject: task.id))
+      submenu.addItem(NSMenuItem(title: L10n.tr("action.pause"), action: #selector(pauseTask(_:)), keyEquivalent: "", target: self, representedObject: task.id))
     } else if task.status == "paused" || task.status == "waiting" {
-      submenu.addItem(NSMenuItem(title: "继续", action: #selector(resumeTask(_:)), keyEquivalent: "", target: self, representedObject: task.id))
+      submenu.addItem(NSMenuItem(title: L10n.tr("action.resume"), action: #selector(resumeTask(_:)), keyEquivalent: "", target: self, representedObject: task.id))
     }
 
     if task.primaryFileURL != nil {
-      submenu.addItem(NSMenuItem(title: "打开文件", action: #selector(openTaskFile(_:)), keyEquivalent: "", target: self, representedObject: task.id))
-      submenu.addItem(NSMenuItem(title: "显示文件位置", action: #selector(revealTaskFile(_:)), keyEquivalent: "", target: self, representedObject: task.id))
+      submenu.addItem(NSMenuItem(title: L10n.tr("task.action.open_file"), action: #selector(openTaskFile(_:)), keyEquivalent: "", target: self, representedObject: task.id))
+      submenu.addItem(NSMenuItem(title: L10n.tr("task.action.reveal_file"), action: #selector(revealTaskFile(_:)), keyEquivalent: "", target: self, representedObject: task.id))
     }
 
-    submenu.addItem(NSMenuItem(title: "移除", action: #selector(removeTask(_:)), keyEquivalent: "", target: self, representedObject: task.id))
+    submenu.addItem(NSMenuItem(title: L10n.tr("action.remove"), action: #selector(removeTask(_:)), keyEquivalent: "", target: self, representedObject: task.id))
     item.submenu = submenu
     return item
   }
@@ -363,17 +373,17 @@ final class StatusController: NSObject, NSMenuDelegate {
   private func localizedStatus(_ status: String) -> String {
     switch status {
     case "active":
-      return "下载中"
+      return L10n.tr("task.status.downloading")
     case "waiting":
-      return "等待"
+      return L10n.tr("task.status.waiting")
     case "paused":
-      return "暂停"
+      return L10n.tr("action.pause")
     case "complete":
-      return "完成"
+      return L10n.tr("action.done")
     case "error":
-      return "错误"
+      return L10n.tr("task.status.error")
     case "removed":
-      return "已移除"
+      return L10n.tr("task.status.removed")
     default:
       return status
     }
@@ -520,19 +530,19 @@ final class StatusController: NSObject, NSMenuDelegate {
 
   @objc private func showEngineInfo() {
     let alert = NSAlert()
-    alert.messageText = "Motrix Native 引擎信息"
+    alert.messageText = L10n.tr("engine_info.title")
     alert.informativeText = [
       "RPC: 127.0.0.1:\(config.rpcPort)",
-      "下载目录: \(config.downloadDirectory.path)",
+      L10n.format("engine_info.download_directory", config.downloadDirectory.path),
       "session: \(config.sessionPath.path)",
-      "aria2c: \(config.aria2BinaryPath?.path ?? "未找到")",
-      "引擎状态: \(engine.statusText)",
-      "配置项: \(config.aria2StartArguments().count) 个启动参数",
+      "aria2c: \(config.aria2BinaryPath?.path ?? L10n.tr("common.not_found"))",
+      L10n.format("engine_info.status", engine.statusText),
+      L10n.format("engine_info.argument_count", String(config.aria2StartArguments().count)),
       "max-connection-per-server: \(config.systemConfig["max-connection-per-server"] ?? "-")",
       "split: \(config.systemConfig["split"] ?? "-")",
       "max-overall-download-limit: \(config.systemConfig["max-overall-download-limit"] ?? "-")"
     ].joined(separator: "\n")
-    alert.addButton(withTitle: "好")
+    alert.addButton(withTitle: L10n.tr("action.ok"))
     alert.runModal()
   }
 

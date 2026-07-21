@@ -8,7 +8,7 @@ final class Aria2Engine {
   private var lastLogMaintenance: Date?
   private var consecutiveFailures = 0
 
-  private(set) var statusText = "未启动"
+  private(set) var statusText = L10n.tr("engine.not_started")
   private(set) var lastError: String?
 
   init(config: MotrixConfig) {
@@ -22,7 +22,7 @@ final class Aria2Engine {
   func ensureRunning(client: Aria2RPCClient, force: Bool = false) async {
     maintainLogSize()
     if await canConnect(client: client) {
-      statusText = "RPC 已连接"
+      statusText = L10n.tr("engine.rpc_connected")
       consecutiveFailures = 0
       lastError = nil
       return
@@ -37,14 +37,14 @@ final class Aria2Engine {
     for _ in 0..<15 {
       try? await Task.sleep(for: .milliseconds(200))
       if await canConnect(client: client) {
-        statusText = "RPC 已连接"
+        statusText = L10n.tr("engine.rpc_connected")
         consecutiveFailures = 0
         lastError = nil
         return
       }
     }
 
-    statusText = "RPC 未连接"
+    statusText = L10n.tr("engine.rpc_disconnected")
   }
 
   func stop() {
@@ -60,7 +60,7 @@ final class Aria2Engine {
       return
     }
 
-    statusText = "正在保存任务"
+    statusText = L10n.tr("engine.saving_tasks")
     try? await client.saveSession()
     try? await client.shutdown()
 
@@ -93,13 +93,13 @@ final class Aria2Engine {
 
   private func startBundledAria2() {
     guard let binary = config.aria2BinaryPath else {
-      statusText = "缺少 aria2c"
-      lastError = "找不到 aria2c"
+      statusText = L10n.tr("engine.binary_missing")
+      lastError = L10n.tr("engine.binary_not_found")
       return
     }
 
     lastStartAttempt = Date()
-    statusText = "正在启动 aria2"
+    statusText = L10n.tr("engine.starting")
 
     let fileManager = FileManager.default
     try? fileManager.createDirectory(at: config.supportDirectory, withIntermediateDirectories: true)
@@ -128,7 +128,7 @@ final class Aria2Engine {
       appendLog("Motrix Native launched aria2c with \(process.arguments?.count ?? 0) arguments.")
     } catch {
       consecutiveFailures += 1
-      statusText = "aria2 启动失败"
+      statusText = L10n.tr("engine.start_failed")
       lastError = error.localizedDescription
       appendLog("Motrix Native failed to launch aria2c: \(error.localizedDescription)")
       self.process = nil
@@ -155,12 +155,12 @@ final class Aria2Engine {
 
     self.process = nil
     if process.terminationStatus == 0 {
-      statusText = "aria2 已退出"
+      statusText = L10n.tr("engine.exited")
       return
     }
 
     consecutiveFailures += 1
-    statusText = "aria2 异常退出"
+    statusText = L10n.tr("engine.crashed")
     lastError = "exit \(process.terminationStatus)"
   }
 

@@ -1,6 +1,8 @@
 # Motrix Native
 
 Native macOS menu bar download manager powered by its own bundled aria2 engine.
+
+[简体中文](README.zh-CN.md) | English
 ### For personal use only!!!
 
 ## What works
@@ -15,6 +17,7 @@ Native macOS menu bar download manager powered by its own bundled aria2 engine.
 - Uses a warning status icon when the aria2 RPC engine is unavailable.
 - Provides a SwiftUI native task window with rounded sidebar filters, search, and grouped task cards.
 - Includes a preferences page for key Motrix basic/advanced settings.
+- Supports System Default, Simplified Chinese, and English interface languages from the General settings page.
 - Adds a compact add-task sheet for URLs and `.torrent` files.
 - Shows active, waiting, and stopped task counts.
 - Lists active, waiting, and recent stopped tasks.
@@ -68,7 +71,10 @@ The executable target follows an MVC-oriented layout under `Sources/MotrixNative
 - `Controllers`: application lifecycle, windows, status menu, and adaptive task coordination.
 - `Services`: aria2 RPC/process/logging and macOS system integrations.
 - `Utilities`: stateless formatting and tracker parsing helpers.
+- `Views/MainWindow`: page-level main window views split by feature.
 - `main.swift`: executable entry point and self-check command.
+
+User-facing strings are stored in `Resources/Localization`. Swift code accesses them through `L10n`, and the package script includes both Simplified Chinese and English resources in the app bundle.
 
 ## Notes
 

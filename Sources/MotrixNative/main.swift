@@ -79,6 +79,27 @@ if CommandLine.arguments.contains("--self-check") {
       return false
     }
   }()
+  let localizationReady: Bool = {
+    let key = "action.cancel"
+    let values = ["zh-Hans", "en"].compactMap { language -> String? in
+      guard
+        let path = Bundle.main.path(forResource: language, ofType: "lproj"),
+        let bundle = Bundle(path: path)
+      else {
+        return nil
+      }
+      return bundle.localizedString(forKey: key, value: key, table: nil)
+    }
+    return values.count == 2 && values.allSatisfy { $0 != key } && values[0] != values[1]
+  }()
+  let languageSwitchReady: Bool = {
+    defer { L10n.configure(language: config.appLanguage) }
+    L10n.configure(language: L10n.Language.english.rawValue)
+    let english = L10n.tr("action.cancel")
+    L10n.configure(language: L10n.Language.simplifiedChinese.rawValue)
+    let simplifiedChinese = L10n.tr("action.cancel")
+    return english != "action.cancel" && simplifiedChinese != "action.cancel" && english != simplifiedChinese
+  }()
   let result: [String: Any] = [
     "aria2Binary": config.aria2BinaryPath?.path ?? "",
     "aria2BinaryReady": binaryReady,
@@ -99,13 +120,15 @@ if CommandLine.arguments.contains("--self-check") {
     "configuredTrackerArgumentReady": configuredTrackerArgumentReady,
     "cleanFileLoggingReady": cleanFileLoggingReady,
     "logRotationReady": logRotationReady,
+    "localizationReady": localizationReady,
+    "languageSwitchReady": languageSwitchReady,
     "configuredTrackerCount": TrackerList.supportedEntries(from: configuredTrackerValue).count,
     "ignoredTrackerCount": TrackerList.unsupportedEntries(from: configuredTrackerValue).count
   ]
   let data = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
   FileHandle.standardOutput.write(data)
   FileHandle.standardOutput.write(Data("\n".utf8))
-  exit(binaryReady && configReady && supportReady && controlFileMappingReady && pieceBitfieldReady && trackerNormalizationReady && configuredTrackerArgumentReady && cleanFileLoggingReady && logRotationReady && seedingDisableReady && adaptiveStartReady ? 0 : 1)
+  exit(binaryReady && configReady && supportReady && controlFileMappingReady && pieceBitfieldReady && trackerNormalizationReady && configuredTrackerArgumentReady && cleanFileLoggingReady && logRotationReady && localizationReady && languageSwitchReady && seedingDisableReady && adaptiveStartReady ? 0 : 1)
 }
 
 let app = NSApplication.shared

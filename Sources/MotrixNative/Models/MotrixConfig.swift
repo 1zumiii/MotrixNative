@@ -26,6 +26,10 @@ struct MotrixConfig {
     boolValue(userConfig["open-at-login"]) ?? false
   }
 
+  var appLanguage: String {
+    userConfig["app-language"] as? String ?? L10n.Language.system.rawValue
+  }
+
   var taskNotificationsEnabled: Bool {
     boolValue(userConfig["task-notification"]) ?? true
   }

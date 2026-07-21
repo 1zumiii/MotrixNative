@@ -44,8 +44,8 @@ private enum NewTaskError: LocalizedError {
 
   var errorDescription: String? {
     switch self {
-    case .noTorrentFiles: return "aria2 没有从这个 torrent 中解析出文件"
-    case .noFilesSelected: return "请至少选择一个要下载的文件"
+    case .noTorrentFiles: return L10n.tr("torrent.error.no_files")
+    case .noFilesSelected: return L10n.tr("torrent.error.no_selection")
     }
   }
 }
@@ -63,11 +63,11 @@ final class MainWindowModel: ObservableObject {
 
     var title: String {
       switch self {
-      case .engine: return "aria2 顺序"
-      case .name: return "名称 A-Z"
-      case .progress: return "进度高到低"
-      case .speed: return "速度快到慢"
-      case .size: return "文件从大到小"
+      case .engine: return L10n.tr("task.sort.engine")
+      case .name: return L10n.tr("task.sort.name")
+      case .progress: return L10n.tr("task.sort.progress")
+      case .speed: return L10n.tr("task.sort.speed")
+      case .size: return L10n.tr("task.sort.size")
       }
     }
   }
@@ -106,11 +106,11 @@ final class MainWindowModel: ObservableObject {
 
     var title: String {
       switch self {
-      case .all: return "全部任务"
-      case .active: return "下载中"
-      case .waiting: return "等待中"
-      case .paused: return "已暂停"
-      case .completed: return "已完成"
+      case .all: return L10n.tr("task.filter.all")
+      case .active: return L10n.tr("task.status.downloading")
+      case .waiting: return L10n.tr("task.filter.waiting")
+      case .paused: return L10n.tr("task.status.paused")
+      case .completed: return L10n.tr("task.status.completed")
       }
     }
 
@@ -150,19 +150,19 @@ final class MainWindowModel: ObservableObject {
 
     var title: String {
       switch self {
-      case .general: return "通用"
-      case .download: return "下载"
+      case .general: return L10n.tr("preferences.section.general")
+      case .download: return L10n.tr("preferences.section.download")
       case .bittorrent: return "BitTorrent"
-      case .connection: return "连接"
+      case .connection: return L10n.tr("preferences.section.connection")
       }
     }
 
     var subtitle: String {
       switch self {
-      case .general: return "应用行为与任务提醒"
-      case .download: return "保存位置、速度和任务调度"
-      case .bittorrent: return "元数据、做种与 Tracker"
-      case .connection: return "RPC 与监听端口"
+      case .general: return L10n.tr("preferences.section.general.subtitle")
+      case .download: return L10n.tr("preferences.section.download.subtitle")
+      case .bittorrent: return L10n.tr("preferences.section.bittorrent.subtitle")
+      case .connection: return L10n.tr("preferences.section.connection.subtitle")
       }
     }
 
@@ -257,7 +257,12 @@ final class MainWindowModel: ObservableObject {
   }
 
   var summaryText: String {
-    "\(filteredTasks.count) 个任务 · 下载 \(Formatting.speed(globalStat.downloadSpeed)) · 上传 \(Formatting.speed(globalStat.uploadSpeed))"
+    L10n.format(
+      "task.summary",
+      String(filteredTasks.count),
+      Formatting.speed(globalStat.downloadSpeed),
+      Formatting.speed(globalStat.uploadSpeed)
+    )
   }
 
   var selectedTask: Aria2Task? {
@@ -373,7 +378,7 @@ final class MainWindowModel: ObservableObject {
       }
       errorText = nil
     } catch {
-      errorText = "RPC 未连接"
+      errorText = L10n.tr("engine.rpc_disconnected")
     }
   }
 
@@ -577,13 +582,14 @@ final class MainWindowModel: ObservableObject {
       try config.save(system: system, user: user)
       config = config.updating(system: system, user: user)
       settings = SettingsDraft(config: config)
+      L10n.configure(language: settings.appLanguage)
       settingsSaved = true
 
       do {
         try LoginItemManager.apply(settings.openAtLogin)
       } catch {
         let alert = NSAlert(error: error)
-        alert.messageText = "无法更新登录项"
+        alert.messageText = L10n.tr("login_item.update_failed")
         alert.runModal()
       }
 
@@ -598,6 +604,7 @@ final class MainWindowModel: ObservableObject {
 
   func resetSettings() {
     settings = SettingsDraft(config: config)
+    L10n.configure(language: settings.appLanguage)
     settingsSaved = false
   }
 
@@ -688,6 +695,7 @@ struct SettingsDraft {
   var taskNotification = true
   var noConfirmBeforeDeleteTask = false
   var adaptiveConnections = true
+  var appLanguage = L10n.Language.system.rawValue
 
   init() {}
 
@@ -719,6 +727,7 @@ struct SettingsDraft {
     taskNotification = Self.bool(user["task-notification"], fallback: true)
     noConfirmBeforeDeleteTask = Self.bool(user["no-confirm-before-delete-task"], fallback: false)
     adaptiveConnections = Self.bool(user["adaptive-connections"], fallback: true)
+    appLanguage = user["app-language"] as? String ?? L10n.Language.system.rawValue
   }
 
   func systemConfig(basedOn base: [String: Any]) -> [String: Any] {
@@ -749,6 +758,7 @@ struct SettingsDraft {
     result["task-notification"] = taskNotification
     result["no-confirm-before-delete-task"] = noConfirmBeforeDeleteTask
     result["adaptive-connections"] = adaptiveConnections
+    result["app-language"] = appLanguage
     result["seeding-enabled"] = seedingEnabled
     if !seedingEnabled {
       result["keep-seeding"] = false

@@ -58,7 +58,7 @@ final class AdaptiveConnectionController {
     self.config = config
     self.client = client
     self.profiles = AdaptiveConnectionProfileStore.load(from: config.adaptiveProfilePath)
-    self.statusText = config.adaptiveConnectionsEnabled ? "待命" : "已关闭"
+    self.statusText = config.adaptiveConnectionsEnabled ? L10n.tr("adaptive.standby") : L10n.tr("adaptive.disabled")
   }
 
   func updateConfig(_ config: MotrixConfig) {
@@ -66,12 +66,12 @@ final class AdaptiveConnectionController {
     states.removeAll()
     profiles = AdaptiveConnectionProfileStore.load(from: config.adaptiveProfilePath)
     lastResult = nil
-    statusText = config.adaptiveConnectionsEnabled ? "待命" : "已关闭"
+    statusText = config.adaptiveConnectionsEnabled ? L10n.tr("adaptive.standby") : L10n.tr("adaptive.disabled")
   }
 
   func observe(_ tasks: [Aria2Task]) async {
     guard config.adaptiveConnectionsEnabled else {
-      statusText = "已关闭"
+      statusText = L10n.tr("adaptive.disabled")
       return
     }
 
@@ -90,11 +90,11 @@ final class AdaptiveConnectionController {
     }
 
     guard !candidates.isEmpty else {
-      statusText = lastResult ?? "待命"
+      statusText = lastResult ?? L10n.tr("adaptive.standby")
       return
     }
 
-    statusText = "正在优化 \(candidates.count) 个任务"
+    statusText = L10n.format("adaptive.optimizing_tasks", String(candidates.count))
     let sharedBudget = max(16, 320 / candidates.count)
     for task in candidates {
       await observe(task, sharedBudget: sharedBudget)
@@ -214,7 +214,7 @@ final class AdaptiveConnectionController {
     state.isFinished = true
     profiles[state.host] = state.bestConnections
     AdaptiveConnectionProfileStore.save(profiles, to: config.adaptiveProfilePath)
-    lastResult = "\(state.host): \(state.bestConnections) 个连接"
-    statusText = lastResult ?? "待命"
+    lastResult = L10n.format("adaptive.result", state.host, String(state.bestConnections))
+    statusText = lastResult ?? L10n.tr("adaptive.standby")
   }
 }

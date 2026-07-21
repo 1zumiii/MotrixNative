@@ -121,16 +121,16 @@ struct Aria2Task: Identifiable {
 
   var localizedStatus: String {
     if isSeeding {
-      return "做种中"
+      return L10n.tr("task.status.seeding")
     }
 
     switch status {
-    case "active": return "下载中"
-    case "waiting": return "等待"
-    case "paused": return "已暂停"
-    case "complete": return "已完成"
-    case "error": return "错误"
-    case "removed": return "已移除"
+    case "active": return L10n.tr("task.status.downloading")
+    case "waiting": return L10n.tr("task.status.waiting")
+    case "paused": return L10n.tr("task.status.paused")
+    case "complete": return L10n.tr("task.status.completed")
+    case "error": return L10n.tr("task.status.error")
+    case "removed": return L10n.tr("task.status.removed")
     default: return status
     }
   }
@@ -193,7 +193,6 @@ struct Aria2Task: Identifiable {
     )
   }
 }
-
 struct Aria2Peer: Identifiable {
   let id: String
   let address: String
@@ -420,7 +419,7 @@ final class Aria2RPCClient {
     }
 
     if let error = object["error"] as? [String: Any] {
-      let message = error["message"] as? String ?? "aria2 RPC failed"
+      let message = error["message"] as? String ?? L10n.tr("error.rpc_failed")
       throw Aria2RPCError.rpc(message)
     }
 

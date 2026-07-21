@@ -10,8 +10,10 @@ enum TaskNotificationManager {
 
   static func notifyDownloadCompleted(_ task: Aria2Task) {
     let content = UNMutableNotificationContent()
-    content.title = "下载完成"
-    content.body = task.isSeeding ? "\(task.name) 已下载完成，正在做种" : task.name
+    content.title = L10n.tr("notification.download_complete.title")
+    content.body = task.isSeeding
+      ? L10n.format("notification.download_complete.seeding", task.name)
+      : task.name
     content.sound = .default
 
     let request = UNNotificationRequest(

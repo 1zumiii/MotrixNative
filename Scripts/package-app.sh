@@ -24,6 +24,7 @@ mkdir -p "$MACOS_DIR" "$RESOURCES_DIR/engine"
 cp "$ROOT_DIR/.build/debug/MotrixNative" "$MACOS_DIR/MotrixNative"
 cp "$ENGINE_SRC/$ARCH/aria2c" "$RESOURCES_DIR/engine/aria2c"
 cp "$ENGINE_SRC/aria2.conf" "$RESOURCES_DIR/engine/aria2.conf"
+cp -R "$ROOT_DIR/Resources/Localization/." "$RESOURCES_DIR/"
 chmod +x "$RESOURCES_DIR/engine/aria2c"
 
 rm -rf "$ICONSET_DIR"
@@ -53,6 +54,8 @@ cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
   <string>Motrix Native</string>
   <key>CFBundleDisplayName</key>
   <string>Motrix Native</string>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>zh-Hans</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleIconFile</key>

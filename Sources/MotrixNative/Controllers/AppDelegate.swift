@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     let config = MotrixConfig.load()
+    L10n.configure(language: config.appLanguage)
     try? LoginItemManager.apply(config.openAtLoginEnabled)
     if config.taskNotificationsEnabled {
       TaskNotificationManager.requestAuthorization()
