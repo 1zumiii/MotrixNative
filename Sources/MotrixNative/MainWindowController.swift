@@ -1,0 +1,61 @@
+import AppKit
+import SwiftUI
+
+@MainActor
+final class MainWindowController: NSWindowController, NSWindowDelegate {
+  private let model: MainWindowModel
+
+  init(config: MotrixConfig, client: Aria2RPCClient) {
+    self.model = MainWindowModel(config: config, client: client)
+
+    let desiredSize = NSSize(width: 1620, height: 1080)
+    let visibleSize = NSScreen.main?.visibleFrame.size ?? desiredSize
+    let initialSize = NSSize(
+      width: min(desiredSize.width, visibleSize.width * 0.92),
+      height: min(desiredSize.height, visibleSize.height * 0.90)
+    )
+
+    let window = NSWindow(
+      contentRect: NSRect(origin: .zero, size: initialSize),
+      styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+      backing: .buffered,
+      defer: false
+    )
+    window.title = "Motrix Native"
+    window.titleVisibility = .hidden
+    window.titlebarAppearsTransparent = true
+    window.minSize = NSSize(width: 920, height: 560)
+    window.isReleasedWhenClosed = false
+    window.contentViewController = NSHostingController(rootView: MainWindowView(model: model))
+
+    super.init(window: window)
+    window.delegate = self
+    window.center()
+  }
+
+  required init?(coder: NSCoder) {
+    nil
+  }
+
+  override func showWindow(_ sender: Any?) {
+    NSApp.setActivationPolicy(.regular)
+    super.showWindow(sender)
+    NSApp.activate(ignoringOtherApps: true)
+    model.startRefreshing()
+  }
+
+  func showDetails(_ task: Aria2Task) {
+    model.showDetails(task)
+  }
+
+  func showPreferences() {
+    model.select(.preferences(.general))
+  }
+
+  func windowShouldClose(_ sender: NSWindow) -> Bool {
+    sender.orderOut(nil)
+    model.stopRefreshing()
+    NSApp.setActivationPolicy(.accessory)
+    return false
+  }
+}

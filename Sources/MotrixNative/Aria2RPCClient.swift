@@ -1,0 +1,406 @@
+import Foundation
+
+struct Aria2Task: Identifiable {
+  let id: String
+  let status: String
+  let totalLength: Int64
+  let completedLength: Int64
+  let uploadLength: Int64
+  let downloadSpeed: Int64
+  let uploadSpeed: Int64
+  let connections: Int
+  let pieceLength: Int64
+  let numPieces: Int
+  let errorCode: String
+  let errorMessage: String
+  let directory: String
+  let bitTorrentName: String?
+  let infoHash: String
+  let trackers: [String]
+  let files: [[String: Any]]
+  let isBitTorrent: Bool
+
+  var name: String {
+    if let bitTorrentName, !bitTorrentName.isEmpty {
+      return bitTorrentName
+    }
+
+    for file in files {
+      if let path = file["path"] as? String, !path.isEmpty {
+        return URL(fileURLWithPath: path).lastPathComponent
+      }
+      if let uris = file["uris"] as? [[String: Any]] {
+        for item in uris {
+          if let uri = item["uri"] as? String, !uri.isEmpty {
+            return uri
+          }
+        }
+      }
+    }
+    return id
+  }
+
+  var progress: Double {
+    guard totalLength > 0 else {
+      return 0
+    }
+
+    return min(1, max(0, Double(completedLength) / Double(totalLength)))
+  }
+
+  var primaryFileURL: URL? {
+    for file in files {
+      if let path = file["path"] as? String, !path.isEmpty {
+        return URL(fileURLWithPath: path)
+      }
+    }
+
+    return nil
+  }
+
+  var sourceHost: String? {
+    for file in files {
+      guard let uris = file["uris"] as? [[String: Any]] else {
+        continue
+      }
+      for item in uris {
+        guard
+          let uri = item["uri"] as? String,
+          let url = URL(string: uri),
+          let scheme = url.scheme?.lowercased(),
+          ["http", "https", "ftp", "sftp"].contains(scheme),
+          let host = url.host?.lowercased()
+        else {
+          continue
+        }
+        return host
+      }
+    }
+    return nil
+  }
+
+  var sourceURI: String? {
+    for file in files {
+      guard let uris = file["uris"] as? [[String: Any]] else {
+        continue
+      }
+      if let uri = uris.first?["uri"] as? String, !uri.isEmpty {
+        return uri
+      }
+    }
+    return nil
+  }
+
+  var fileDetails: [Aria2TaskFile] {
+    files.compactMap(Aria2TaskFile.init)
+  }
+
+  var isSeeding: Bool {
+    isBitTorrent && status == "active" && totalLength > 0 && completedLength >= totalLength
+  }
+
+  var localizedStatus: String {
+    if isSeeding {
+      return "做种中"
+    }
+
+    switch status {
+    case "active": return "下载中"
+    case "waiting": return "等待"
+    case "paused": return "已暂停"
+    case "complete": return "已完成"
+    case "error": return "错误"
+    case "removed": return "已移除"
+    default: return status
+    }
+  }
+
+  func updating(status: String, downloadSpeed: Int64, uploadSpeed: Int64) -> Aria2Task {
+    Aria2Task(
+      id: id,
+      status: status,
+      totalLength: totalLength,
+      completedLength: completedLength,
+      uploadLength: uploadLength,
+      downloadSpeed: downloadSpeed,
+      uploadSpeed: uploadSpeed,
+      connections: connections,
+      pieceLength: pieceLength,
+      numPieces: numPieces,
+      errorCode: errorCode,
+      errorMessage: errorMessage,
+      directory: directory,
+      bitTorrentName: bitTorrentName,
+      infoHash: infoHash,
+      trackers: trackers,
+      files: files,
+      isBitTorrent: isBitTorrent
+    )
+  }
+
+  static func from(_ dictionary: [String: Any]) -> Aria2Task? {
+    guard let gid = dictionary["gid"] as? String else {
+      return nil
+    }
+
+    let bitTorrent = dictionary["bittorrent"] as? [String: Any]
+    let bitTorrentInfo = bitTorrent?["info"] as? [String: Any]
+    let trackers = (bitTorrent?["announceList"] as? [[String]] ?? [])
+      .flatMap { $0 }
+      .filter { !$0.isEmpty }
+
+    return Aria2Task(
+      id: gid,
+      status: dictionary["status"] as? String ?? "unknown",
+      totalLength: Int64(dictionary["totalLength"] as? String ?? "0") ?? 0,
+      completedLength: Int64(dictionary["completedLength"] as? String ?? "0") ?? 0,
+      uploadLength: Int64(dictionary["uploadLength"] as? String ?? "0") ?? 0,
+      downloadSpeed: Int64(dictionary["downloadSpeed"] as? String ?? "0") ?? 0,
+      uploadSpeed: Int64(dictionary["uploadSpeed"] as? String ?? "0") ?? 0,
+      connections: Int(dictionary["connections"] as? String ?? "0") ?? 0,
+      pieceLength: Int64(dictionary["pieceLength"] as? String ?? "0") ?? 0,
+      numPieces: Int(dictionary["numPieces"] as? String ?? "0") ?? 0,
+      errorCode: dictionary["errorCode"] as? String ?? "0",
+      errorMessage: dictionary["errorMessage"] as? String ?? "",
+      directory: dictionary["dir"] as? String ?? "",
+      bitTorrentName: bitTorrentInfo?["name"] as? String,
+      infoHash: dictionary["infoHash"] as? String ?? "",
+      trackers: Array(Set(trackers)).sorted(),
+      files: dictionary["files"] as? [[String: Any]] ?? [],
+      isBitTorrent: bitTorrent != nil
+    )
+  }
+}
+
+struct Aria2Peer: Identifiable {
+  let id: String
+  let address: String
+  let downloadSpeed: Int64
+  let uploadSpeed: Int64
+  let isSeeder: Bool
+  let isChoking: Bool
+
+  static func from(_ dictionary: [String: Any]) -> Aria2Peer? {
+    guard let ip = dictionary["ip"] as? String, !ip.isEmpty else {
+      return nil
+    }
+
+    let port = dictionary["port"] as? String ?? ""
+    let peerID = dictionary["peerId"] as? String ?? ""
+    return Aria2Peer(
+      id: peerID.isEmpty ? "\(ip):\(port)" : peerID,
+      address: port.isEmpty ? ip : "\(ip):\(port)",
+      downloadSpeed: Int64(dictionary["downloadSpeed"] as? String ?? "0") ?? 0,
+      uploadSpeed: Int64(dictionary["uploadSpeed"] as? String ?? "0") ?? 0,
+      isSeeder: dictionary["seeder"] as? String == "true",
+      isChoking: dictionary["peerChoking"] as? String == "true"
+    )
+  }
+}
+
+struct Aria2TaskFile: Identifiable {
+  let id: String
+  let path: String
+  let length: Int64
+  let completedLength: Int64
+  let isSelected: Bool
+
+  init?(_ dictionary: [String: Any]) {
+    guard let path = dictionary["path"] as? String, !path.isEmpty else {
+      return nil
+    }
+
+    self.id = dictionary["index"] as? String ?? path
+    self.path = path
+    self.length = Int64(dictionary["length"] as? String ?? "0") ?? 0
+    self.completedLength = Int64(dictionary["completedLength"] as? String ?? "0") ?? 0
+    self.isSelected = dictionary["selected"] as? String != "false"
+  }
+
+  var name: String {
+    URL(fileURLWithPath: path).lastPathComponent
+  }
+
+  var progress: Double {
+    guard length > 0 else { return 0 }
+    return min(1, max(0, Double(completedLength) / Double(length)))
+  }
+}
+
+struct Aria2GlobalStat {
+  let downloadSpeed: Int64
+  let uploadSpeed: Int64
+  let active: Int
+  let waiting: Int
+  let stopped: Int
+
+  func usingActiveTaskSpeeds(_ tasks: [Aria2Task]) -> Aria2GlobalStat {
+    let activeTasks = tasks.filter { $0.status == "active" }
+    return Aria2GlobalStat(
+      downloadSpeed: activeTasks.reduce(Int64(0)) { $0 + $1.downloadSpeed },
+      uploadSpeed: activeTasks.reduce(Int64(0)) { $0 + $1.uploadSpeed },
+      active: active,
+      waiting: waiting,
+      stopped: stopped
+    )
+  }
+}
+
+enum Aria2RPCError: Error {
+  case invalidURL
+  case invalidResponse
+  case rpc(String)
+}
+
+@MainActor
+final class Aria2RPCClient {
+  private var config: MotrixConfig
+  private let session: URLSession
+  private var requestID = 0
+
+  init(config: MotrixConfig, session: URLSession = .shared) {
+    self.config = config
+    self.session = session
+  }
+
+  var endpoint: URL? {
+    URL(string: "http://127.0.0.1:\(config.rpcPort)/jsonrpc")
+  }
+
+  func updateConfig(_ config: MotrixConfig) {
+    self.config = config
+  }
+
+  func getGlobalStat() async throws -> Aria2GlobalStat {
+    let result: [String: Any] = try await call("aria2.getGlobalStat")
+    return Aria2GlobalStat(
+      downloadSpeed: Int64(result["downloadSpeed"] as? String ?? "0") ?? 0,
+      uploadSpeed: Int64(result["uploadSpeed"] as? String ?? "0") ?? 0,
+      active: Int(result["numActive"] as? String ?? "0") ?? 0,
+      waiting: Int(result["numWaiting"] as? String ?? "0") ?? 0,
+      stopped: Int(result["numStopped"] as? String ?? "0") ?? 0
+    )
+  }
+
+  func listTasks() async throws -> [Aria2Task] {
+    let active: [[String: Any]] = try await call("aria2.tellActive")
+    let waiting: [[String: Any]] = try await call("aria2.tellWaiting", params: [0, 20])
+    let stopped: [[String: Any]] = try await call("aria2.tellStopped", params: [0, 20])
+    let combined = active + waiting + stopped
+    return combined.compactMap(Aria2Task.from)
+  }
+
+  func addURI(_ uri: String, directory: URL, additionalOptions: [String: Any] = [:]) async throws {
+    var options: [String: Any] = additionalOptions
+    options["dir"] = directory.path
+    if config.adaptiveConnectionsEnabled, let host = URL(string: uri)?.host?.lowercased() {
+      let learned = AdaptiveConnectionProfileStore.load(from: config.adaptiveProfilePath)[host]
+      let connections = min(
+        config.adaptiveConnectionCeiling,
+        max(1, learned ?? config.adaptiveStartingConnections)
+      )
+      options["split"] = "\(connections)"
+      options["max-connection-per-server"] = "\(connections)"
+    }
+    let _: String = try await call("aria2.addUri", params: [[uri], options])
+  }
+
+  @discardableResult
+  func addTorrent(
+    _ fileURL: URL,
+    directory: URL,
+    additionalOptions: [String: Any] = [:]
+  ) async throws -> String {
+    let data = try Data(contentsOf: fileURL)
+    let encoded = data.base64EncodedString()
+    var options: [String: Any] = additionalOptions
+    options["dir"] = directory.path
+    return try await call("aria2.addTorrent", params: [encoded, [], options])
+  }
+
+  func pause(_ gid: String) async throws {
+    let _: String = try await call("aria2.pause", params: [gid])
+  }
+
+  func unpause(_ gid: String) async throws {
+    let _: String = try await call("aria2.unpause", params: [gid])
+  }
+
+  func remove(_ gid: String) async throws {
+    let _: String = try await call("aria2.remove", params: [gid])
+  }
+
+  func removeDownloadResult(_ gid: String) async throws {
+    let _: String = try await call("aria2.removeDownloadResult", params: [gid])
+  }
+
+  func getOption(_ gid: String) async throws -> [String: String] {
+    try await call("aria2.getOption", params: [gid])
+  }
+
+  func changeOption(_ gid: String, options: [String: String]) async throws {
+    let _: String = try await call("aria2.changeOption", params: [gid, options])
+  }
+
+  func getFiles(_ gid: String) async throws -> [Aria2TaskFile] {
+    let result: [[String: Any]] = try await call("aria2.getFiles", params: [gid])
+    return result.compactMap(Aria2TaskFile.init)
+  }
+
+  func getPeers(_ gid: String) async throws -> [Aria2Peer] {
+    let result: [[String: Any]] = try await call("aria2.getPeers", params: [gid])
+    return result.compactMap(Aria2Peer.from)
+  }
+
+  func saveSession() async throws {
+    let _: String = try await call("aria2.saveSession")
+  }
+
+  func shutdown() async throws {
+    let _: String = try await call("aria2.shutdown")
+  }
+
+  private func call<T>(_ method: String, params: [Any] = []) async throws -> T {
+    guard let endpoint else {
+      throw Aria2RPCError.invalidURL
+    }
+
+    requestID += 1
+    var finalParams: [Any] = params
+    if !config.rpcSecret.isEmpty {
+      finalParams.insert("token:\(config.rpcSecret)", at: 0)
+    }
+
+    let payload: [String: Any] = [
+      "jsonrpc": "2.0",
+      "id": requestID,
+      "method": method,
+      "params": finalParams
+    ]
+
+    var request = URLRequest(url: endpoint)
+    request.httpMethod = "POST"
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+
+    let (data, response) = try await session.data(for: request)
+    guard
+      let http = response as? HTTPURLResponse,
+      (200..<300).contains(http.statusCode),
+      let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else {
+      throw Aria2RPCError.invalidResponse
+    }
+
+    if let error = object["error"] as? [String: Any] {
+      let message = error["message"] as? String ?? "aria2 RPC failed"
+      throw Aria2RPCError.rpc(message)
+    }
+
+    guard let result = object["result"] as? T else {
+      throw Aria2RPCError.invalidResponse
+    }
+
+    return result
+  }
+}
