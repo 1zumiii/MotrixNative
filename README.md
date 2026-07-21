@@ -1,6 +1,7 @@
 # Motrix Native
 
 Native macOS menu bar download manager powered by its own bundled aria2 engine.
+### For personal use only!!!
 
 ## What works
 
