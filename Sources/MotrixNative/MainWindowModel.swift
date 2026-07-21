@@ -52,6 +52,49 @@ private enum NewTaskError: LocalizedError {
 
 @MainActor
 final class MainWindowModel: ObservableObject {
+  enum TaskSort: String, CaseIterable, Identifiable {
+    case engine
+    case name
+    case progress
+    case speed
+    case size
+
+    var id: String { rawValue }
+
+    var title: String {
+      switch self {
+      case .engine: return "aria2 顺序"
+      case .name: return "名称 A-Z"
+      case .progress: return "进度高到低"
+      case .speed: return "速度快到慢"
+      case .size: return "文件从大到小"
+      }
+    }
+  }
+
+  enum QueueMove {
+    case top
+    case up
+    case down
+    case bottom
+
+    var position: Int {
+      switch self {
+      case .top, .bottom: return 0
+      case .up: return -1
+      case .down: return 1
+      }
+    }
+
+    var how: String {
+      switch self {
+      case .top: return "POS_SET"
+      case .up, .down: return "POS_CUR"
+      case .bottom: return "POS_END"
+      }
+    }
+  }
+
   enum Filter: Int, CaseIterable, Identifiable {
     case all
     case active
@@ -150,6 +193,9 @@ final class MainWindowModel: ObservableObject {
   @Published var filter: Filter = .all
   @Published var selectedSection: Section = .tasks(.all)
   @Published var searchText = ""
+  @Published var taskSort: TaskSort = .engine
+  @Published var isSelectingTasks = false
+  @Published var selectedTaskIDs = Set<String>()
   @Published var errorText: String?
   @Published var showingAddTask = false
   @Published var selectedTaskID: String?
@@ -194,6 +240,19 @@ final class MainWindowModel: ObservableObject {
       }
     }
 
+    switch taskSort {
+    case .engine:
+      break
+    case .name:
+      result.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    case .progress:
+      result.sort { $0.progress > $1.progress }
+    case .speed:
+      result.sort { $0.downloadSpeed > $1.downloadSpeed }
+    case .size:
+      result.sort { $0.totalLength > $1.totalLength }
+    }
+
     return result
   }
 
@@ -204,6 +263,10 @@ final class MainWindowModel: ObservableObject {
   var selectedTask: Aria2Task? {
     guard let selectedTaskID else { return nil }
     return tasks.first { $0.id == selectedTaskID }
+  }
+
+  var selectedTasks: [Aria2Task] {
+    tasks.filter { selectedTaskIDs.contains($0.id) }
   }
 
   var defaultDownloadDirectory: URL { config.downloadDirectory }
@@ -228,6 +291,7 @@ final class MainWindowModel: ObservableObject {
     selectedTaskID = nil
     selectedTaskOptions = [:]
     selectedPeers = []
+    endTaskSelection()
     selectedSection = section
     if case .tasks(let filter) = section {
       self.filter = filter
@@ -239,6 +303,28 @@ final class MainWindowModel: ObservableObject {
     selectedTaskOptions = [:]
     selectedPeers = []
     Task { await refreshDetails(for: task) }
+  }
+
+  func setTaskSelection(_ enabled: Bool) {
+    isSelectingTasks = enabled
+    if !enabled { selectedTaskIDs.removeAll() }
+  }
+
+  func toggleTaskSelection(_ task: Aria2Task) {
+    if selectedTaskIDs.contains(task.id) {
+      selectedTaskIDs.remove(task.id)
+    } else {
+      selectedTaskIDs.insert(task.id)
+    }
+  }
+
+  func selectAllVisibleTasks() {
+    selectedTaskIDs = Set(filteredTasks.map(\.id))
+  }
+
+  func endTaskSelection() {
+    isSelectingTasks = false
+    selectedTaskIDs.removeAll()
   }
 
   func closeDetails() {
@@ -272,6 +358,7 @@ final class MainWindowModel: ObservableObject {
       let latestStat = try await client.getGlobalStat()
       let latestTasks = try await client.listTasks()
       tasks = latestTasks
+      selectedTaskIDs.formIntersection(Set(latestTasks.map(\.id)))
       globalStat = latestStat.usingActiveTaskSpeeds(latestTasks)
       if let selectedTaskID, let selected = latestTasks.first(where: { $0.id == selectedTaskID }) {
         selectedTaskOptions = (try? await client.getOption(selectedTaskID)) ?? [:]
@@ -408,20 +495,53 @@ final class MainWindowModel: ObservableObject {
     }
   }
 
-  func remove(_ task: Aria2Task) async {
-    guard settings.noConfirmBeforeDeleteTask || TaskRemovalConfirmation.confirm(task) else {
+  func pauseSelectedTasks() async {
+    await performBatch(selectedTasks.filter { $0.status == "active" }) { task in
+      try await client.pause(task.id)
+    }
+  }
+
+  func resumeSelectedTasks() async {
+    await performBatch(selectedTasks.filter { $0.status == "paused" || $0.status == "waiting" }) { task in
+      try await client.unpause(task.id)
+    }
+  }
+
+  func moveInQueue(_ task: Aria2Task, _ move: QueueMove) async {
+    await perform {
+      try await client.changePosition(task.id, position: move.position, how: move.how)
+    }
+  }
+
+  func remove(_ task: Aria2Task, deletingFiles: Bool = false) async {
+    guard
+      (!deletingFiles && settings.noConfirmBeforeDeleteTask) ||
+        TaskRemovalConfirmation.confirm([task], deletingFiles: deletingFiles)
+    else {
       return
     }
 
-    await perform {
-      if task.status == "complete" || task.status == "error" || task.status == "removed" {
-        try await client.removeDownloadResult(task.id)
-      } else {
-        try await client.remove(task.id)
-      }
-    }
+    await removeTasks([task], deletingFiles: deletingFiles)
     if selectedTaskID == task.id {
       selectedTaskID = nil
+    }
+  }
+
+  func removeSelectedTasks(deletingFiles: Bool) async {
+    let targets = selectedTasks
+    guard !targets.isEmpty else { return }
+    guard TaskRemovalConfirmation.confirm(targets, deletingFiles: deletingFiles) else { return }
+    await removeTasks(targets, deletingFiles: deletingFiles)
+    endTaskSelection()
+  }
+
+  func clearCompletedTasks() async {
+    let completed = tasks.filter { $0.status == "complete" }
+    guard !completed.isEmpty, TaskRemovalConfirmation.confirmClearingCompleted(count: completed.count) else {
+      return
+    }
+    await performBatch(completed) { task in
+      try await client.removeDownloadResult(task.id)
     }
   }
 
@@ -488,6 +608,59 @@ final class MainWindowModel: ObservableObject {
     } catch {
       let alert = NSAlert(error: error)
       alert.runModal()
+    }
+  }
+
+  private func performBatch(
+    _ targets: [Aria2Task],
+    operation: @MainActor (Aria2Task) async throws -> Void
+  ) async {
+    guard !targets.isEmpty else { return }
+    do {
+      for task in targets {
+        try await operation(task)
+      }
+      await refresh()
+    } catch {
+      NSAlert(error: error).runModal()
+      await refresh()
+    }
+  }
+
+  private func removeTasks(_ targets: [Aria2Task], deletingFiles: Bool) async {
+    do {
+      for target in targets {
+        let files = deletingFiles ? removableFiles(for: target) : []
+        if target.status == "complete" || target.status == "error" || target.status == "removed" {
+          try await client.removeDownloadResult(target.id)
+        } else {
+          try await client.remove(target.id)
+          try? await Task.sleep(for: .milliseconds(80))
+          try? await client.removeDownloadResult(target.id)
+        }
+        if deletingFiles {
+          try moveToTrash(files)
+        }
+      }
+      selectedTaskIDs.subtract(targets.map(\.id))
+      await refresh()
+    } catch {
+      NSAlert(error: error).runModal()
+      await refresh()
+    }
+  }
+
+  private func removableFiles(for task: Aria2Task) -> [URL] {
+    let fileManager = FileManager.default
+    let downloads = task.fileDetails.map { URL(fileURLWithPath: $0.path) }
+    let candidates = Set(downloads).union(CompletedControlFileCleaner.controlFiles(for: task))
+    return candidates.filter { fileManager.fileExists(atPath: $0.path) }
+  }
+
+  private func moveToTrash(_ urls: [URL]) throws {
+    let fileManager = FileManager.default
+    for url in urls.sorted(by: { $0.path < $1.path }) {
+      try fileManager.trashItem(at: url, resultingItemURL: nil)
     }
   }
 }

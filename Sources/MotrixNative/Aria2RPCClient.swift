@@ -364,6 +364,11 @@ final class Aria2RPCClient {
     let _: String = try await call("aria2.changeOption", params: [gid, options])
   }
 
+  @discardableResult
+  func changePosition(_ gid: String, position: Int, how: String) async throws -> Int {
+    try await call("aria2.changePosition", params: [gid, position, how])
+  }
+
   func getFiles(_ gid: String) async throws -> [Aria2TaskFile] {
     let result: [[String: Any]] = try await call("aria2.getFiles", params: [gid])
     return result.compactMap(Aria2TaskFile.init)

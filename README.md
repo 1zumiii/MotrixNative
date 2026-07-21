@@ -21,6 +21,9 @@ Native macOS menu bar download manager powered by its own bundled aria2 engine.
 - Pauses, resumes, and removes tasks.
 - Provides task context menus for common operations.
 - Opens a native detail page with progress, transfer statistics, files, source, location, errors, and task ID.
+- Visualizes aria2 piece completion as a compact block matrix, with automatic sampling for very large tasks.
+- Supports task sorting, multi-selection, batch pause/resume/removal, completed-record cleanup, and waiting-queue priority controls.
+- Can remove task records while moving their downloaded and partial files to the macOS Trash.
 - Saves settings to Motrix Native's independent `system.json` and `user.json`.
 - Can disable BitTorrent seeding entirely; restarting the engine reloads the latest saved settings.
 - Removes stale `.aria2` control files only after aria2 reports the task as fully complete.

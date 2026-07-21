@@ -136,6 +136,31 @@ struct MainWindowView: View {
       }
 
       if case .tasks = model.selectedSection {
+        Menu {
+          Picker("排序", selection: $model.taskSort) {
+            ForEach(MainWindowModel.TaskSort.allCases) { sort in
+              Text(sort.title).tag(sort)
+            }
+          }
+        } label: {
+          Image(systemName: "arrow.up.arrow.down")
+        }
+        .menuStyle(.borderlessButton)
+        .frame(width: 34)
+        .help("任务排序")
+
+        Button {
+          model.setTaskSelection(!model.isSelectingTasks)
+        } label: {
+          Image(systemName: model.isSelectingTasks ? "checkmark.circle.fill" : "checkmark.circle")
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.large)
+        .tint(model.isSelectingTasks ? .teal : nil)
+        .help(model.isSelectingTasks ? "结束选择" : "批量选择")
+      }
+
+      if case .tasks = model.selectedSection {
         Button {
           model.showingAddTask = true
         } label: {
@@ -155,6 +180,20 @@ struct MainWindowView: View {
         .buttonStyle(.bordered)
         .controlSize(.large)
         .help("刷新")
+
+        Menu {
+          Button {
+            Task { await model.clearCompletedTasks() }
+          } label: {
+            Label("清理已完成任务", systemImage: "checkmark.circle")
+          }
+          .disabled(model.count(for: .completed) == 0)
+        } label: {
+          Image(systemName: "ellipsis.circle")
+        }
+        .menuStyle(.borderlessButton)
+        .frame(width: 34)
+        .help("更多任务操作")
       }
     }
   }
@@ -178,17 +217,23 @@ struct MainWindowView: View {
   }
 
   private var taskList: some View {
-    ScrollView {
-      LazyVStack(spacing: 10) {
-        ForEach(model.filteredTasks) { task in
-          TaskCard(task: task, model: model)
+    VStack(spacing: 10) {
+      ScrollView {
+        LazyVStack(spacing: 10) {
+          ForEach(model.filteredTasks) { task in
+            TaskCard(task: task, model: model)
+          }
         }
+        .padding(14)
       }
-      .padding(14)
-    }
-    .background {
-      RoundedRectangle(cornerRadius: 10, style: .continuous)
-        .fill(Color(nsColor: .controlBackgroundColor).opacity(0.74))
+      .background {
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
+          .fill(Color(nsColor: .controlBackgroundColor).opacity(0.74))
+      }
+
+      if model.isSelectingTasks {
+        TaskSelectionBar(model: model)
+      }
     }
   }
 
@@ -1109,9 +1154,20 @@ private struct TaskDetailView: View {
         Button("复制 GID") {
           model.copyGID(task)
         }
+        if task.status == "waiting" || task.status == "paused" {
+          Menu("队列优先级") {
+            Button("移到队首") { Task { await model.moveInQueue(task, .top) } }
+            Button("上移一位") { Task { await model.moveInQueue(task, .up) } }
+            Button("下移一位") { Task { await model.moveInQueue(task, .down) } }
+            Button("移到队尾") { Task { await model.moveInQueue(task, .bottom) } }
+          }
+        }
         Divider()
         Button("移除任务", role: .destructive) {
           Task { await model.remove(task) }
+        }
+        Button("移除并将文件移到废纸篓", role: .destructive) {
+          Task { await model.remove(task, deletingFiles: true) }
         }
       } label: {
         Image(systemName: "ellipsis.circle")
@@ -1510,9 +1566,19 @@ private struct TaskCard: View {
   var body: some View {
     HStack(spacing: 0) {
       Button {
-        model.showDetails(task)
+        if model.isSelectingTasks {
+          model.toggleTaskSelection(task)
+        } else {
+          model.showDetails(task)
+        }
       } label: {
         HStack(spacing: 16) {
+          if model.isSelectingTasks {
+            Image(systemName: model.selectedTaskIDs.contains(task.id) ? "checkmark.circle.fill" : "circle")
+              .font(.system(size: 17, weight: .medium))
+              .foregroundStyle(model.selectedTaskIDs.contains(task.id) ? .teal : .secondary)
+          }
+
           taskIcon
 
           VStack(alignment: .leading, spacing: 7) {
@@ -1553,9 +1619,11 @@ private struct TaskCard: View {
           }
           .frame(width: 170, alignment: .trailing)
 
-          Image(systemName: "chevron.right")
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(.tertiary)
+          if !model.isSelectingTasks {
+            Image(systemName: "chevron.right")
+              .font(.system(size: 11, weight: .semibold))
+              .foregroundStyle(.tertiary)
+          }
         }
         .padding(.leading, 16)
         .padding(.vertical, 14)
@@ -1565,31 +1633,33 @@ private struct TaskCard: View {
       }
       .buttonStyle(.plain)
 
-      HStack(spacing: 4) {
-        if task.status == "active" {
-          iconButton("pause.fill", help: "暂停") {
-            Task { await model.pause(task) }
+      if !model.isSelectingTasks {
+        HStack(spacing: 4) {
+          if task.status == "active" {
+            iconButton("pause.fill", help: "暂停") {
+              Task { await model.pause(task) }
+            }
+          } else if task.status == "paused" || task.status == "waiting" {
+            iconButton("play.fill", help: "继续") {
+              Task { await model.resume(task) }
+            }
           }
-        } else if task.status == "paused" || task.status == "waiting" {
-          iconButton("play.fill", help: "继续") {
-            Task { await model.resume(task) }
+
+          iconButton("folder", help: "显示位置") {
+            model.reveal(task)
+          }
+
+          iconButton("trash", help: "移除") {
+            Task { await model.remove(task) }
           }
         }
-
-        iconButton("folder", help: "显示位置") {
-          model.reveal(task)
-        }
-
-        iconButton("trash", help: "移除") {
-          Task { await model.remove(task) }
-        }
+        .padding(.trailing, 16)
       }
-      .padding(.trailing, 16)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .background {
       RoundedRectangle(cornerRadius: 8, style: .continuous)
-        .fill(Color(nsColor: .windowBackgroundColor))
+        .fill(model.selectedTaskIDs.contains(task.id) ? Color.teal.opacity(0.09) : Color(nsColor: .windowBackgroundColor))
         .shadow(color: .black.opacity(0.035), radius: 8, x: 0, y: 3)
     }
     .contextMenu {
@@ -1613,10 +1683,22 @@ private struct TaskCard: View {
         model.reveal(task)
       }
 
+      if task.status == "waiting" || task.status == "paused" {
+        Menu("队列优先级") {
+          Button("移到队首") { Task { await model.moveInQueue(task, .top) } }
+          Button("上移一位") { Task { await model.moveInQueue(task, .up) } }
+          Button("下移一位") { Task { await model.moveInQueue(task, .down) } }
+          Button("移到队尾") { Task { await model.moveInQueue(task, .bottom) } }
+        }
+      }
+
       Divider()
 
       Button("移除", role: .destructive) {
         Task { await model.remove(task) }
+      }
+      Button("移除并将文件移到废纸篓", role: .destructive) {
+        Task { await model.remove(task, deletingFiles: true) }
       }
     }
   }
@@ -1658,6 +1740,67 @@ private struct TaskCard: View {
     }
     .buttonStyle(.plain)
     .help(help)
+  }
+}
+
+private struct TaskSelectionBar: View {
+  @ObservedObject var model: MainWindowModel
+
+  var body: some View {
+    HStack(spacing: 10) {
+      Text("已选择 \(model.selectedTaskIDs.count) 项")
+        .font(.system(size: 13, weight: .semibold))
+
+      Button(model.selectedTaskIDs.count == model.filteredTasks.count ? "取消全选" : "全选") {
+        if model.selectedTaskIDs.count == model.filteredTasks.count {
+          model.selectedTaskIDs.removeAll()
+        } else {
+          model.selectAllVisibleTasks()
+        }
+      }
+      .buttonStyle(.link)
+
+      Spacer()
+
+      Button {
+        Task { await model.pauseSelectedTasks() }
+      } label: {
+        Label("暂停", systemImage: "pause.fill")
+      }
+      .disabled(model.selectedTaskIDs.isEmpty)
+
+      Button {
+        Task { await model.resumeSelectedTasks() }
+      } label: {
+        Label("继续", systemImage: "play.fill")
+      }
+      .disabled(model.selectedTaskIDs.isEmpty)
+
+      Menu {
+        Button("仅移除任务", role: .destructive) {
+          Task { await model.removeSelectedTasks(deletingFiles: false) }
+        }
+        Button("移除并将文件移到废纸篓", role: .destructive) {
+          Task { await model.removeSelectedTasks(deletingFiles: true) }
+        }
+      } label: {
+        Label("移除", systemImage: "trash")
+      }
+      .disabled(model.selectedTaskIDs.isEmpty)
+
+      Button("完成") {
+        model.endTaskSelection()
+      }
+      .buttonStyle(.borderedProminent)
+      .tint(.teal)
+    }
+    .padding(.horizontal, 14)
+    .padding(.vertical, 10)
+    .background(Color(nsColor: .controlBackgroundColor).opacity(0.82), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    .overlay {
+      RoundedRectangle(cornerRadius: 8, style: .continuous)
+        .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+    }
   }
 }
 
