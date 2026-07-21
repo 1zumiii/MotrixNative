@@ -154,6 +154,7 @@ final class MainWindowModel: ObservableObject {
   @Published var showingAddTask = false
   @Published var selectedTaskID: String?
   @Published private(set) var selectedPeers: [Aria2Peer] = []
+  @Published private(set) var selectedTaskOptions: [String: String] = [:]
   @Published var settings = SettingsDraft()
   @Published var settingsSaved = false
 
@@ -225,6 +226,8 @@ final class MainWindowModel: ObservableObject {
 
   func select(_ section: Section) {
     selectedTaskID = nil
+    selectedTaskOptions = [:]
+    selectedPeers = []
     selectedSection = section
     if case .tasks(let filter) = section {
       self.filter = filter
@@ -233,11 +236,14 @@ final class MainWindowModel: ObservableObject {
 
   func showDetails(_ task: Aria2Task) {
     selectedTaskID = task.id
-    Task { await refreshPeers(for: task) }
+    selectedTaskOptions = [:]
+    selectedPeers = []
+    Task { await refreshDetails(for: task) }
   }
 
   func closeDetails() {
     selectedTaskID = nil
+    selectedTaskOptions = [:]
     selectedPeers = []
   }
 
@@ -267,13 +273,15 @@ final class MainWindowModel: ObservableObject {
       let latestTasks = try await client.listTasks()
       tasks = latestTasks
       globalStat = latestStat.usingActiveTaskSpeeds(latestTasks)
-      if
-        let selectedTaskID,
-        let selected = latestTasks.first(where: { $0.id == selectedTaskID }),
-        selected.isBitTorrent
-      {
-        selectedPeers = (try? await client.getPeers(selectedTaskID)) ?? []
+      if let selectedTaskID, let selected = latestTasks.first(where: { $0.id == selectedTaskID }) {
+        selectedTaskOptions = (try? await client.getOption(selectedTaskID)) ?? [:]
+        if selected.isBitTorrent {
+          selectedPeers = (try? await client.getPeers(selectedTaskID)) ?? []
+        } else {
+          selectedPeers = []
+        }
       } else {
+        selectedTaskOptions = [:]
         selectedPeers = []
       }
       errorText = nil
@@ -370,13 +378,11 @@ final class MainWindowModel: ObservableObject {
     await refresh()
   }
 
-  private func refreshPeers(for task: Aria2Task) async {
-    guard task.isBitTorrent else {
-      selectedPeers = []
-      return
-    }
-    let peers = (try? await client.getPeers(task.id)) ?? []
+  private func refreshDetails(for task: Aria2Task) async {
+    let options = (try? await client.getOption(task.id)) ?? [:]
+    let peers = task.isBitTorrent ? ((try? await client.getPeers(task.id)) ?? []) : []
     guard selectedTaskID == task.id else { return }
+    selectedTaskOptions = options
     selectedPeers = peers
   }
 

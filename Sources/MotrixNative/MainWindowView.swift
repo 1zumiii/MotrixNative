@@ -476,7 +476,7 @@ private struct PreferencesView: View {
         PreferenceDivider()
         preferenceNumberField("单服务器连接数", subtitle: "手动模式使用值，也是智能并发的上限", image: "server.rack", color: .orange, value: $model.settings.maxConnectionPerServer, range: 1...128)
         PreferenceDivider()
-        preferenceNumberField("任务分片数", subtitle: "手动模式使用值，也是智能并发的上限", image: "square.grid.3x3.fill", color: .purple, value: $model.settings.split, range: 1...128)
+        preferenceNumberField("任务分片上限", subtitle: "每个任务允许的并发分片上限", image: "square.grid.3x3.fill", color: .purple, value: $model.settings.split, range: 1...128)
       }
     }
   }
@@ -993,7 +993,11 @@ private struct TaskDetailView: View {
             DetailSection(title: "任务信息") {
               DetailRow(title: "类型", value: task.isBitTorrent ? "BitTorrent" : "HTTP / FTP")
               DetailDivider()
-              DetailRow(title: "分片", value: task.numPieces > 0 ? "\(task.numPieces) × \(Formatting.bytes(task.pieceLength))" : "-")
+              DetailRow(title: "数据块", value: task.numPieces > 0 ? "\(task.numPieces) × \(Formatting.bytes(task.pieceLength))" : "-")
+              DetailDivider()
+              DetailRow(title: "任务分片上限", value: effectiveOption("split"))
+              DetailDivider()
+              DetailRow(title: "单服务器连接上限", value: effectiveOption("max-connection-per-server"))
               DetailDivider()
               DetailRow(title: "服务器", value: task.sourceHost ?? "-")
               DetailDivider()
@@ -1163,6 +1167,10 @@ private struct TaskDetailView: View {
   private var shareRatioText: String {
     guard task.completedLength > 0 else { return "0.00" }
     return String(format: "%.2f", Double(task.uploadLength) / Double(task.completedLength))
+  }
+
+  private func effectiveOption(_ key: String) -> String {
+    model.selectedTaskOptions[key] ?? "读取中..."
   }
 
   private var bitTorrentSummary: some View {
