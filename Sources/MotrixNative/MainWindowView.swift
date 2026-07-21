@@ -589,9 +589,7 @@ private struct PreferencesView: View {
         }
         PreferenceDivider()
         PreferenceRow(title: "授权密钥", subtitle: "用于保护 JSON-RPC 连接", image: "key.fill", color: .orange) {
-          SecureField("未设置", text: $model.settings.rpcSecret)
-            .textFieldStyle(.roundedBorder)
-            .frame(width: 210)
+          RPCSecretField(text: $model.settings.rpcSecret)
         }
       }
 
@@ -898,6 +896,67 @@ private struct IntegerStepperField: View {
 
     value = min(range.upperBound, max(range.lowerBound, entered))
     text = String(value)
+  }
+}
+
+private struct RPCSecretField: View {
+  @Binding var text: String
+  @State private var isRevealed = false
+
+  var body: some View {
+    HStack(spacing: 0) {
+      Group {
+        if isRevealed {
+          TextField("未设置", text: $text)
+        } else {
+          SecureField("未设置", text: $text)
+        }
+      }
+      .textFieldStyle(.plain)
+      .font(.system(size: 13, design: .monospaced))
+      .padding(.horizontal, 9)
+
+      Divider()
+        .frame(height: 20)
+
+      secretButton(
+        isRevealed ? "eye.slash" : "eye",
+        help: isRevealed ? "隐藏密钥" : "显示密钥"
+      ) {
+        isRevealed.toggle()
+      }
+
+      Divider()
+        .frame(height: 20)
+
+      secretButton("dice.fill", help: "生成随机密钥") {
+        text = Self.randomSecret()
+      }
+    }
+    .frame(width: 278, height: 30)
+    .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+    .overlay {
+      RoundedRectangle(cornerRadius: 6, style: .continuous)
+        .stroke(Color.primary.opacity(0.14), lineWidth: 1)
+    }
+  }
+
+  private func secretButton(_ image: String, help: String, action: @escaping () -> Void) -> some View {
+    Button(action: action) {
+      Image(systemName: image)
+        .font(.system(size: 12, weight: .medium))
+        .foregroundStyle(.secondary)
+        .frame(width: 34, height: 28)
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .help(help)
+  }
+
+  private static func randomSecret() -> String {
+    let alphabet = Array("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")
+    var generator = SystemRandomNumberGenerator()
+    return String((0..<32).compactMap { _ in alphabet.randomElement(using: &generator) })
   }
 }
 
