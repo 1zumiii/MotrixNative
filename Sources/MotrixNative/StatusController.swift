@@ -30,6 +30,7 @@ final class StatusController: NSObject, NSMenuDelegate {
 
   func start() {
     statusItem.button?.imagePosition = .imageLeading
+    statusItem.button?.imageScaling = .scaleNone
     menu.delegate = self
     statusItem.menu = menu
 
