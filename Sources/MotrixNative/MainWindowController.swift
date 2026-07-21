@@ -52,6 +52,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     model.select(.preferences(.general))
   }
 
+  func showAddTask() {
+    model.closeDetails()
+    model.showingAddTask = true
+  }
+
   func windowShouldClose(_ sender: NSWindow) -> Bool {
     sender.orderOut(nil)
     model.stopRefreshing()

@@ -117,7 +117,7 @@ final class StatusController: NSObject, NSMenuDelegate {
     menu.addItem(NSMenuItem.separator())
     menu.addItem(sectionHeader("快捷操作"))
     menu.addItem(menuItem(title: "打开 Motrix Native", systemImage: "macwindow", action: #selector(openMainWindow), keyEquivalent: "m"))
-    menu.addItem(menuItem(title: "新建下载...", systemImage: "plus.circle", action: #selector(addLink), keyEquivalent: "n"))
+    menu.addItem(menuItem(title: "新建下载...", systemImage: "plus.circle", action: #selector(openAddTask), keyEquivalent: "n"))
     menu.addItem(menuItem(title: "打开下载目录", systemImage: "folder", action: #selector(openDownloadDirectory), keyEquivalent: "o"))
     menu.addItem(menuItem(title: "偏好设置...", systemImage: "gearshape", action: #selector(openPreferences), keyEquivalent: ","))
     menu.addItem(engineMenuItem())
@@ -422,34 +422,9 @@ final class StatusController: NSObject, NSMenuDelegate {
     mainWindowController.showDetails(task)
   }
 
-  @objc private func addLink() {
-    let alert = NSAlert()
-    alert.messageText = "添加下载链接"
-    alert.informativeText = "支持 HTTP/HTTPS/FTP/magnet 等 aria2 可识别的链接。"
-    alert.addButton(withTitle: "添加")
-    alert.addButton(withTitle: "取消")
-
-    let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 420, height: 24))
-    input.placeholderString = "https://..."
-    alert.accessoryView = input
-
-    guard alert.runModal() == .alertFirstButtonReturn else {
-      return
-    }
-
-    let uri = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !uri.isEmpty else {
-      return
-    }
-
-    Task {
-      do {
-        try await client.addURI(uri, directory: config.downloadDirectory)
-        await refresh()
-      } catch {
-        showError(error)
-      }
-    }
+  @objc private func openAddTask() {
+    showMainWindow()
+    mainWindowController.showAddTask()
   }
 
   @objc private func pauseTask(_ sender: NSMenuItem) {
