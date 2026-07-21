@@ -60,6 +60,25 @@ if CommandLine.arguments.contains("--self-check") {
     "--show-console-readout=false",
     "--enable-color=false"
   ]
+  let logRotationReady: Bool = {
+    let directory = FileManager.default.temporaryDirectory
+      .appendingPathComponent("motrix-native-log-check-\(UUID().uuidString)", isDirectory: true)
+    let activeURL = directory.appendingPathComponent("aria2.log")
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    do {
+      try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+      let original = Data(repeating: 65, count: 65)
+      try original.write(to: activeURL)
+      let store = Aria2LogStore(activeURL: activeURL, maximumFileSize: 64, retainedArchiveCount: 2)
+      store.rotateIfNeeded()
+      let activeSize = try Data(contentsOf: activeURL).count
+      let archived = try Data(contentsOf: store.archiveURL(index: 1))
+      return activeSize == 0 && archived == original
+    } catch {
+      return false
+    }
+  }()
   let result: [String: Any] = [
     "aria2Binary": config.aria2BinaryPath?.path ?? "",
     "aria2BinaryReady": binaryReady,
@@ -79,13 +98,14 @@ if CommandLine.arguments.contains("--self-check") {
     "trackerNormalizationReady": trackerNormalizationReady,
     "configuredTrackerArgumentReady": configuredTrackerArgumentReady,
     "cleanFileLoggingReady": cleanFileLoggingReady,
+    "logRotationReady": logRotationReady,
     "configuredTrackerCount": TrackerList.supportedEntries(from: configuredTrackerValue).count,
     "ignoredTrackerCount": TrackerList.unsupportedEntries(from: configuredTrackerValue).count
   ]
   let data = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
   FileHandle.standardOutput.write(data)
   FileHandle.standardOutput.write(Data("\n".utf8))
-  exit(binaryReady && configReady && supportReady && controlFileMappingReady && pieceBitfieldReady && trackerNormalizationReady && configuredTrackerArgumentReady && cleanFileLoggingReady && seedingDisableReady && adaptiveStartReady ? 0 : 1)
+  exit(binaryReady && configReady && supportReady && controlFileMappingReady && pieceBitfieldReady && trackerNormalizationReady && configuredTrackerArgumentReady && cleanFileLoggingReady && logRotationReady && seedingDisableReady && adaptiveStartReady ? 0 : 1)
 }
 
 let app = NSApplication.shared

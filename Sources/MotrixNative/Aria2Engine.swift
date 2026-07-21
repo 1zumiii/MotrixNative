@@ -5,6 +5,7 @@ final class Aria2Engine {
   private var config: MotrixConfig
   private var process: Process?
   private var lastStartAttempt: Date?
+  private var lastLogMaintenance: Date?
   private var consecutiveFailures = 0
 
   private(set) var statusText = "未启动"
@@ -19,6 +20,7 @@ final class Aria2Engine {
   }
 
   func ensureRunning(client: Aria2RPCClient, force: Bool = false) async {
+    maintainLogSize()
     if await canConnect(client: client) {
       statusText = "RPC 已连接"
       consecutiveFailures = 0
@@ -112,7 +114,8 @@ final class Aria2Engine {
       }
     }
     let logURL = config.aria2LogPath
-    compactExistingLog(at: logURL)
+    Aria2LogStore(activeURL: logURL).prepare()
+    lastLogMaintenance = Date()
     if !fileManager.fileExists(atPath: logURL.path) {
       fileManager.createFile(atPath: logURL.path, contents: nil)
     }
@@ -180,49 +183,13 @@ final class Aria2Engine {
     try? handle.close()
   }
 
-  private func compactExistingLog(at url: URL) {
-    guard
-      let data = try? Data(contentsOf: url),
-      !data.isEmpty,
-      let original = String(data: data, encoding: .utf8)
-    else {
+  private func maintainLogSize() {
+    let now = Date()
+    if let lastLogMaintenance, now.timeIntervalSince(lastLogMaintenance) < 60 {
       return
     }
 
-    let ansiPattern = "\u{001B}\\[[0-9;]*m"
-    let plain = original.replacingOccurrences(
-      of: ansiPattern,
-      with: "",
-      options: .regularExpression
-    )
-    let normalizedNewlines = plain
-      .replacingOccurrences(of: "\r\n", with: "\n")
-      .replacingOccurrences(of: "\r", with: "\n")
-
-    var lines: [String] = []
-    var previousLineWasBlank = true
-    for line in normalizedNewlines.split(separator: "\n", omittingEmptySubsequences: false) {
-      let value = String(line)
-      let isBlank = value.trimmingCharacters(in: .whitespaces).isEmpty
-      if isBlank {
-        if !previousLineWasBlank {
-          lines.append("")
-        }
-      } else {
-        lines.append(value)
-      }
-      previousLineWasBlank = isBlank
-    }
-
-    while lines.last?.isEmpty == true {
-      lines.removeLast()
-    }
-
-    let compacted = lines.isEmpty ? "" : lines.joined(separator: "\n") + "\n"
-    guard compacted != original else {
-      return
-    }
-
-    try? Data(compacted.utf8).write(to: url, options: .atomic)
+    lastLogMaintenance = now
+    Aria2LogStore(activeURL: config.aria2LogPath).rotateIfNeeded()
   }
 }
