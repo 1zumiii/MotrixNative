@@ -922,6 +922,10 @@ private struct TaskDetailView: View {
               DetailRow(title: "已下载", value: Formatting.bytes(task.completedLength))
               DetailDivider()
               DetailRow(title: "已上传", value: Formatting.bytes(task.uploadLength))
+              if task.isBitTorrent {
+                DetailDivider()
+                DetailRow(title: "分享率", value: shareRatioText)
+              }
               DetailDivider()
               DetailRow(title: "活动连接", value: "\(task.connections)")
             }
@@ -954,6 +958,12 @@ private struct TaskDetailView: View {
             }
             .padding(14)
             .background(Color.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+          }
+
+          if task.isBitTorrent {
+            bitTorrentSummary
+            trackerSection
+            peerSection
           }
 
           DetailSection(title: task.fileDetails.count > 1 ? "文件（\(task.fileDetails.count)）" : "文件") {
@@ -1090,6 +1100,63 @@ private struct TaskDetailView: View {
     default: return .secondary
     }
   }
+
+  private var shareRatioText: String {
+    guard task.completedLength > 0 else { return "0.00" }
+    return String(format: "%.2f", Double(task.uploadLength) / Double(task.completedLength))
+  }
+
+  private var bitTorrentSummary: some View {
+    DetailSection(title: "BitTorrent 网络") {
+      DetailRow(title: "Info Hash", value: task.infoHash.isEmpty ? "-" : task.infoHash, monospaced: true)
+      DetailDivider()
+      DetailRow(title: "Tracker", value: "\(task.trackers.count)")
+      DetailDivider()
+      DetailRow(title: "Peer", value: "\(model.selectedPeers.count)")
+      DetailDivider()
+      DetailRow(title: "做种节点", value: "\(model.selectedPeers.filter(\.isSeeder).count)")
+    }
+  }
+
+  private var trackerSection: some View {
+    DetailSection(title: "Tracker（\(task.trackers.count)）") {
+      if task.trackers.isEmpty {
+        DetailEmptyRow(text: "当前任务没有可用的 Tracker 信息")
+      } else {
+        ForEach(Array(task.trackers.prefix(8).enumerated()), id: \.offset) { index, tracker in
+          DetailTextRow(image: "antenna.radiowaves.left.and.right", text: tracker)
+          if index < min(task.trackers.count, 8) - 1 {
+            DetailDivider()
+          }
+        }
+
+        if task.trackers.count > 8 {
+          DetailDivider()
+          DetailEmptyRow(text: "另有 \(task.trackers.count - 8) 个 Tracker")
+        }
+      }
+    }
+  }
+
+  private var peerSection: some View {
+    DetailSection(title: "Peer（\(model.selectedPeers.count)）") {
+      if model.selectedPeers.isEmpty {
+        DetailEmptyRow(text: task.status == "active" ? "正在等待对等节点" : "任务未活动，暂无 Peer 信息")
+      } else {
+        ForEach(Array(model.selectedPeers.prefix(20).enumerated()), id: \.offset) { index, peer in
+          PeerRow(peer: peer)
+          if index < min(model.selectedPeers.count, 20) - 1 {
+            DetailDivider()
+          }
+        }
+
+        if model.selectedPeers.count > 20 {
+          DetailDivider()
+          DetailEmptyRow(text: "另有 \(model.selectedPeers.count - 20) 个 Peer")
+        }
+      }
+    }
+  }
 }
 
 private struct DetailSection<Content: View>: View {
@@ -1146,6 +1213,75 @@ private struct DetailDivider: View {
   var body: some View {
     Divider()
       .padding(.leading, 14)
+  }
+}
+
+private struct DetailEmptyRow: View {
+  let text: String
+
+  var body: some View {
+    Text(text)
+      .font(.system(size: 12))
+      .foregroundStyle(.secondary)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(.horizontal, 14)
+      .padding(.vertical, 12)
+  }
+}
+
+private struct DetailTextRow: View {
+  let image: String
+  let text: String
+
+  var body: some View {
+    HStack(spacing: 10) {
+      Image(systemName: image)
+        .font(.system(size: 12))
+        .foregroundStyle(.secondary)
+        .frame(width: 18)
+      Text(text)
+        .font(.system(size: 12, design: .monospaced))
+        .lineLimit(1)
+        .truncationMode(.middle)
+        .textSelection(.enabled)
+      Spacer(minLength: 0)
+    }
+    .padding(.horizontal, 14)
+    .padding(.vertical, 10)
+  }
+}
+
+private struct PeerRow: View {
+  let peer: Aria2Peer
+
+  var body: some View {
+    HStack(spacing: 12) {
+      Image(systemName: peer.isSeeder ? "arrow.up.circle.fill" : "person.crop.circle")
+        .font(.system(size: 15))
+        .foregroundStyle(peer.isSeeder ? .indigo : .secondary)
+        .frame(width: 20)
+
+      VStack(alignment: .leading, spacing: 3) {
+        Text(peer.address)
+          .font(.system(size: 12, weight: .medium, design: .monospaced))
+          .lineLimit(1)
+        Text(peer.isSeeder ? "做种节点" : peer.isChoking ? "已限流" : "正在传输")
+          .font(.system(size: 10))
+          .foregroundStyle(.secondary)
+      }
+
+      Spacer(minLength: 14)
+
+      VStack(alignment: .trailing, spacing: 3) {
+        Label(Formatting.speed(peer.downloadSpeed), systemImage: "arrow.down")
+        Label(Formatting.speed(peer.uploadSpeed), systemImage: "arrow.up")
+      }
+      .font(.system(size: 10, design: .rounded))
+      .foregroundStyle(.secondary)
+      .monospacedDigit()
+    }
+    .padding(.horizontal, 14)
+    .padding(.vertical, 9)
   }
 }
 
