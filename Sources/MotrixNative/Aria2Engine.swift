@@ -112,13 +112,12 @@ final class Aria2Engine {
       }
     }
     let logURL = config.aria2LogPath
+    compactExistingLog(at: logURL)
     if !fileManager.fileExists(atPath: logURL.path) {
       fileManager.createFile(atPath: logURL.path, contents: nil)
     }
-    let logHandle = try? FileHandle(forWritingTo: logURL)
-    _ = try? logHandle?.seekToEnd()
-    process.standardOutput = logHandle
-    process.standardError = logHandle
+    process.standardOutput = FileHandle.nullDevice
+    process.standardError = FileHandle.nullDevice
 
     do {
       try process.run()
@@ -163,7 +162,7 @@ final class Aria2Engine {
   }
 
   private func appendLog(_ message: String) {
-    let line = "\n[\(Date())] \(message)\n"
+    let line = "[Motrix Native \(Date())] \(message)\n"
     guard let data = line.data(using: .utf8) else {
       return
     }
@@ -179,5 +178,51 @@ final class Aria2Engine {
     _ = try? handle.seekToEnd()
     try? handle.write(contentsOf: data)
     try? handle.close()
+  }
+
+  private func compactExistingLog(at url: URL) {
+    guard
+      let data = try? Data(contentsOf: url),
+      !data.isEmpty,
+      let original = String(data: data, encoding: .utf8)
+    else {
+      return
+    }
+
+    let ansiPattern = "\u{001B}\\[[0-9;]*m"
+    let plain = original.replacingOccurrences(
+      of: ansiPattern,
+      with: "",
+      options: .regularExpression
+    )
+    let normalizedNewlines = plain
+      .replacingOccurrences(of: "\r\n", with: "\n")
+      .replacingOccurrences(of: "\r", with: "\n")
+
+    var lines: [String] = []
+    var previousLineWasBlank = true
+    for line in normalizedNewlines.split(separator: "\n", omittingEmptySubsequences: false) {
+      let value = String(line)
+      let isBlank = value.trimmingCharacters(in: .whitespaces).isEmpty
+      if isBlank {
+        if !previousLineWasBlank {
+          lines.append("")
+        }
+      } else {
+        lines.append(value)
+      }
+      previousLineWasBlank = isBlank
+    }
+
+    while lines.last?.isEmpty == true {
+      lines.removeLast()
+    }
+
+    let compacted = lines.isEmpty ? "" : lines.joined(separator: "\n") + "\n"
+    guard compacted != original else {
+      return
+    }
+
+    try? Data(compacted.utf8).write(to: url, options: .atomic)
   }
 }

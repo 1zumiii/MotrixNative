@@ -141,7 +141,12 @@ struct MotrixConfig {
   func aria2StartArguments() -> [String] {
     var arguments = [
       "--conf-path=\(aria2ConfigPath.path)",
-      "--save-session=\(sessionPath.path)"
+      "--save-session=\(sessionPath.path)",
+      "--log=\(aria2LogPath.path)",
+      "--log-level=notice",
+      "--quiet=true",
+      "--show-console-readout=false",
+      "--enable-color=false"
     ]
 
     if FileManager.default.fileExists(atPath: sessionPath.path) {
@@ -149,6 +154,9 @@ struct MotrixConfig {
     }
 
     var engineConfig = systemConfig
+    for key in ["log", "log-level", "quiet", "show-console-readout", "enable-color"] {
+      engineConfig.removeValue(forKey: key)
+    }
     let seedingEnabled = boolValue(userConfig["seeding-enabled"])
       ?? ((intValue(engineConfig["seed-time"]) ?? 60) != 0)
     if !seedingEnabled {
