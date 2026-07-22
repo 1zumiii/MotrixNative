@@ -1,0 +1,15 @@
+{
+  "architecture": "arm64",
+  "aria2Commit": "9e7273583f83e881e3ec067b523ba88724088d2f",
+  "aria2Version": "1.37.0-git.9e72735",
+  "dependencies": {
+    "c-ares": "1.34.8",
+    "expat": "2.8.2",
+    "libssh2": "1.11.1+security-backports",
+    "OpenSSL": "3.5.7 LTS",
+    "SQLite": "3.53.3",
+    "zlib": "1.3.2"
+  },
+  "minimumMacOS": "14.0",
+  "tlsBackend": "AppleTLS"
+}

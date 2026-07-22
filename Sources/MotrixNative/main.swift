@@ -100,9 +100,22 @@ if CommandLine.arguments.contains("--self-check") {
     let simplifiedChinese = L10n.tr("action.cancel")
     return english != "action.cancel" && simplifiedChinese != "action.cancel" && english != simplifiedChinese
   }()
+  let aria2Build = Aria2BuildInfo.load()
+  let aria2VersionOutput = config.aria2BinaryPath.flatMap(Aria2BinaryInspector.versionOutput)
+  let aria2Architectures = config.aria2BinaryPath.flatMap(Aria2BinaryInspector.architectures) ?? ""
+  let aria2BuildReady = aria2Build?.architecture == "arm64"
+    && aria2Build?.aria2Commit == "9e7273583f83e881e3ec067b523ba88724088d2f"
+    && aria2Build?.aria2Version == "1.37.0-git.9e72735"
+    && aria2Build?.tlsBackend == "AppleTLS"
+    && aria2Architectures == "arm64"
+    && aria2VersionOutput?.contains("aria2 version 1.37.0-git.9e72735") == true
   let result: [String: Any] = [
     "aria2Binary": config.aria2BinaryPath?.path ?? "",
     "aria2BinaryReady": binaryReady,
+    "aria2Architecture": aria2Architectures,
+    "aria2BuildReady": aria2BuildReady,
+    "aria2Commit": aria2Build?.aria2Commit ?? "",
+    "aria2Version": aria2Build?.aria2Version ?? "",
     "aria2Config": config.aria2ConfigPath.path,
     "aria2ConfigReady": configReady,
     "adaptiveConnectionCeiling": config.adaptiveConnectionCeiling,
@@ -128,7 +141,7 @@ if CommandLine.arguments.contains("--self-check") {
   let data = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
   FileHandle.standardOutput.write(data)
   FileHandle.standardOutput.write(Data("\n".utf8))
-  exit(binaryReady && configReady && supportReady && controlFileMappingReady && pieceBitfieldReady && trackerNormalizationReady && configuredTrackerArgumentReady && cleanFileLoggingReady && logRotationReady && localizationReady && languageSwitchReady && seedingDisableReady && adaptiveStartReady ? 0 : 1)
+  exit(binaryReady && aria2BuildReady && configReady && supportReady && controlFileMappingReady && pieceBitfieldReady && trackerNormalizationReady && configuredTrackerArgumentReady && cleanFileLoggingReady && logRotationReady && localizationReady && languageSwitchReady && seedingDisableReady && adaptiveStartReady ? 0 : 1)
 }
 
 let app = NSApplication.shared

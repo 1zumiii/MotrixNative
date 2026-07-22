@@ -300,6 +300,11 @@ struct MotrixConfig {
 
   private static func migrateLegacyDataIfNeeded(from legacyDirectory: URL, to nativeDirectory: URL) {
     let fileManager = FileManager.default
+    let marker = nativeDirectory.appendingPathComponent(".motrix-migration-complete")
+    guard !fileManager.fileExists(atPath: marker.path) else {
+      return
+    }
+
     for filename in ["system.json", "user.json"] {
       let source = legacyDirectory.appendingPathComponent(filename)
       let destination = nativeDirectory.appendingPathComponent(filename)
@@ -315,27 +320,25 @@ struct MotrixConfig {
 
     let legacySession = legacyDirectory.appendingPathComponent("download.session")
     let nativeSession = nativeDirectory.appendingPathComponent("download.session")
-    guard fileManager.fileExists(atPath: legacySession.path) else {
-      return
+    if fileManager.fileExists(atPath: legacySession.path) {
+      let legacyDate = (try? legacySession.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+      let nativeDate = (try? nativeSession.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+      if !fileManager.fileExists(atPath: nativeSession.path) || legacyDate > nativeDate {
+        let temporary = nativeDirectory.appendingPathComponent("download.session.importing")
+        try? fileManager.removeItem(at: temporary)
+        do {
+          try fileManager.copyItem(at: legacySession, to: temporary)
+        } catch {
+          return
+        }
+        _ = try? fileManager.replaceItemAt(nativeSession, withItemAt: temporary)
+        if !fileManager.fileExists(atPath: nativeSession.path) {
+          try? fileManager.moveItem(at: temporary, to: nativeSession)
+        }
+      }
     }
 
-    let legacyDate = (try? legacySession.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
-    let nativeDate = (try? nativeSession.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
-    guard !fileManager.fileExists(atPath: nativeSession.path) || legacyDate > nativeDate else {
-      return
-    }
-
-    let temporary = nativeDirectory.appendingPathComponent("download.session.importing")
-    try? fileManager.removeItem(at: temporary)
-    do {
-      try fileManager.copyItem(at: legacySession, to: temporary)
-    } catch {
-      return
-    }
-    _ = try? fileManager.replaceItemAt(nativeSession, withItemAt: temporary)
-    if !fileManager.fileExists(atPath: nativeSession.path) {
-      try? fileManager.moveItem(at: temporary, to: nativeSession)
-    }
+    try? Data().write(to: marker, options: .atomic)
   }
 
   private static func bundledAria2Binary() -> URL? {

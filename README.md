@@ -4,6 +4,8 @@
 由于原版Motrix会一直保留在Dock导航栏，不能隐藏在状态栏里，且npm下载环境异常的慢挂了梯子都慢，逼死强迫症了（怒），于是一怒之下用Swift重构了一个MotrixNative，但是其实只把内部的aria2引擎拿过来了...本质还是个套皮App
 ### 仅供个人使用！！！
 
+当前版本仅支持 Apple Silicon（arm64）和 macOS 14 或更高版本。
+
 简体中文 | [English](README.en.md)
 
 ## 已实现功能
@@ -11,8 +13,8 @@
 - 作为菜单栏应用运行，后台状态下不显示 Dock 图标。
 - 打开主窗口时显示 Dock 图标，关闭窗口后重新隐藏到菜单栏。
 - 所有运行数据保存在 `~/Library/Application Support/Motrix Native`。
-- 首次启动时可继承 Motrix 的兼容设置和 `download.session`。
-- 内置独立 aria2 二进制与配置，运行时不依赖原版 Motrix。
+- 首次启动时可一次性继承 Motrix 的兼容设置和 `download.session`，完成后不再读取原版数据。
+- 内置从上游源码编译的 aria2 `1.37.0-git.9e72735` 与独立配置，运行时不依赖原版 Motrix 或 Homebrew。
 - 可连接已经运行的兼容 aria2 RPC 服务，也能自动启动和守护内置引擎。
 - 菜单栏以清晰的 Retina 环形图标显示任务综合进度，并提供完成与异常状态提醒。
 - 提供原生 SwiftUI 任务窗口、筛选、搜索、排序和批量选择。
@@ -29,15 +31,26 @@
 
 ## 构建
 
+首次构建或更新引擎时，先安装脚本所列构建工具，再生成固定版本的 arm64 aria2：
+
 ```sh
+brew install autoconf automake libtool gettext pkgconf cppunit
 cd MotrixNative
-xcrun swift build
+Scripts/build-aria2-arm64.sh --install
+```
+
+脚本固定到 aria2 commit `9e7273583f83e881e3ec067b523ba88724088d2f`，校验全部源码包，并静态编入 zlib、Expat、SQLite、c-ares 和带安全补丁的 libssh2/OpenSSL。aria2 自身的 HTTPS 使用系统 AppleTLS，最终产物只动态链接 macOS 系统库。构建会运行上游 979 项测试；部分 macOS 网络环境不会把 LPD 组播包回送给发送端，因此仅对这一条精确的组播超时作环境性豁免，其余 978 项必须通过。
+
+然后构建 Swift 应用：
+
+```sh
+xcrun swift build --arch arm64
 ```
 
 ## 打包
 
 ```sh
-MotrixNative/Scripts/package-app.sh
+Scripts/package-app.sh
 ```
 
 开发版 App 会生成在：
@@ -62,4 +75,4 @@ MotrixNative/.build/app/Motrix Native.app
 
 ## 独立性
 
-打包后的应用包含自身所需的 aria2 引擎、默认配置、图标和语言资源。首次迁移完成后，删除原版 Motrix 不会影响 Motrix Native 的引擎、配置或任务会话。
+打包后的应用包含自身所需的 arm64 aria2 引擎、默认配置、版本清单、图标和语言资源。打包脚本会拒绝非 arm64 产物、版本不匹配或第三方动态库依赖。首次迁移完成后，删除原版 Motrix 不会影响 Motrix Native 的引擎、配置或任务会话。

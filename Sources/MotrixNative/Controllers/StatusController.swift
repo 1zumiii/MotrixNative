@@ -531,7 +531,7 @@ final class StatusController: NSObject, NSMenuDelegate {
   @objc private func showEngineInfo() {
     let alert = NSAlert()
     alert.messageText = L10n.tr("engine_info.title")
-    alert.informativeText = [
+    var details = [
       "RPC: 127.0.0.1:\(config.rpcPort)",
       L10n.format("engine_info.download_directory", config.downloadDirectory.path),
       "session: \(config.sessionPath.path)",
@@ -541,7 +541,15 @@ final class StatusController: NSObject, NSMenuDelegate {
       "max-connection-per-server: \(config.systemConfig["max-connection-per-server"] ?? "-")",
       "split: \(config.systemConfig["split"] ?? "-")",
       "max-overall-download-limit: \(config.systemConfig["max-overall-download-limit"] ?? "-")"
-    ].joined(separator: "\n")
+    ]
+    if let build = Aria2BuildInfo.load() {
+      details.insert(contentsOf: [
+        L10n.format("engine_info.build", build.aria2Version, build.shortCommit),
+        L10n.format("engine_info.platform", build.architecture, build.minimumMacOS, build.tlsBackend),
+        L10n.format("engine_info.dependencies", build.dependencySummary)
+      ], at: 0)
+    }
+    alert.informativeText = details.joined(separator: "\n")
     alert.addButton(withTitle: L10n.tr("action.ok"))
     alert.runModal()
   }

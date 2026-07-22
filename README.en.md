@@ -8,13 +8,15 @@ The original Motrix is a capable aria2 frontend, but on macOS it insists on keep
 
 ### For personal use only!!!
 
+The current build requires Apple Silicon (arm64) and macOS 14 or later.
+
 ## What works
 
 - Runs as a menu bar app with no Dock icon.
 - Shows a Dock icon while the main window is open, then hides back to the menu bar when the window is closed.
 - Stores all runtime data in `~/Library/Application Support/Motrix Native`.
-- On first launch, copies compatible settings and `download.session` from Motrix when available.
-- Uses a bundled aria2 binary and configuration; the original Motrix app is not required at runtime.
+- On first launch, imports compatible settings and `download.session` from Motrix once, then stops reading the original app's data.
+- Bundles aria2 `1.37.0-git.9e72735`, built from upstream source with its own configuration; neither Motrix nor Homebrew is required at runtime.
 - Connects to an already-running compatible aria2 RPC server, or starts its own bundled engine.
 - Shows weighted download progress in the menu bar with a compact ring icon.
 - Uses a warning status icon when the aria2 RPC engine is unavailable.
@@ -48,15 +50,26 @@ The original Motrix is a capable aria2 frontend, but on macOS it insists on keep
 
 ## Build
 
+On the first build, or whenever the engine is updated, install the build tools named by the script and produce the pinned arm64 aria2 binary:
+
 ```sh
+brew install autoconf automake libtool gettext pkgconf cppunit
 cd MotrixNative
-xcrun swift build
+Scripts/build-aria2-arm64.sh --install
+```
+
+The script pins aria2 commit `9e7273583f83e881e3ec067b523ba88724088d2f`, verifies every source archive, and statically links zlib, Expat, SQLite, c-ares, and a security-patched libssh2/OpenSSL stack. aria2 itself uses the macOS AppleTLS backend for HTTPS, and the resulting executable dynamically links only system libraries. The upstream suite runs 979 tests. Some macOS network setups do not loop an LPD multicast packet back to its sender, so the script permits that exact environmental timeout only; the other 978 tests must pass.
+
+Then build the Swift app:
+
+```sh
+xcrun swift build --arch arm64
 ```
 
 ## Package
 
 ```sh
-MotrixNative/Scripts/package-app.sh
+Scripts/package-app.sh
 ```
 
 The development app bundle is written to:
@@ -81,4 +94,4 @@ User-facing strings are stored in `Resources/Localization`. Swift code accesses 
 
 ## Notes
 
-The packaged app is self-contained. Removing the original Motrix app does not remove Motrix Native's engine or settings. Launch Motrix Native once before deleting Motrix data so the one-time configuration and session migration can complete.
+The packaged app contains its own arm64 aria2 engine, defaults, build manifest, icon, and language resources. Packaging rejects the wrong architecture, a mismatched engine version, or non-system dynamic dependencies. Removing the original Motrix app does not remove Motrix Native's engine or settings. Launch Motrix Native once before deleting Motrix data so the one-time configuration and session migration can complete.
