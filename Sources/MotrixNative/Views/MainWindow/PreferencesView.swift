@@ -153,9 +153,9 @@ struct PreferencesView: View {
         PreferenceDivider()
         preferenceStepper(L10n.tr("preferences.concurrent_downloads.title"), subtitle: L10n.tr("preferences.concurrent_downloads.subtitle"), image: "square.stack.3d.up.fill", color: .blue, value: $model.settings.maxConcurrentDownloads, range: 1...50)
         PreferenceDivider()
-        preferenceNumberField(L10n.tr("preferences.connections_per_server.title"), subtitle: L10n.tr("preferences.connections_per_server.subtitle"), image: "server.rack", color: .orange, value: $model.settings.maxConnectionPerServer, range: 1...128)
+        preferenceNumberField(L10n.tr("preferences.connections_per_server.title"), subtitle: L10n.tr("preferences.connections_per_server.subtitle"), image: "server.rack", color: .orange, value: $model.settings.maxConnectionPerServer, range: Aria2Limits.connectionRange)
         PreferenceDivider()
-        preferenceNumberField(L10n.tr("preferences.split.title"), subtitle: L10n.tr("preferences.split.subtitle"), image: "square.grid.3x3.fill", color: .purple, value: $model.settings.split, range: 1...128)
+        preferenceNumberField(L10n.tr("preferences.split.title"), subtitle: L10n.tr("preferences.split.subtitle"), image: "square.grid.3x3.fill", color: .purple, value: $model.settings.split, range: Aria2Limits.connectionRange)
       }
     }
   }

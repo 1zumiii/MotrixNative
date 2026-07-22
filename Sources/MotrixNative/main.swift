@@ -15,7 +15,26 @@ if CommandLine.arguments.contains("--self-check") {
     .aria2StartArguments()
     .first { $0.hasPrefix("--seed-time=") } ?? ""
   let seedingDisableReady = disabledSeedingArgument == "--seed-time=0"
+  var oversizedConnectionSystem = config.systemConfig
+  oversizedConnectionSystem["max-connection-per-server"] = 128
+  oversizedConnectionSystem["split"] = 128
+  let oversizedConnectionConfig = config.updating(system: oversizedConnectionSystem)
+  let oversizedConnectionArguments = Set(oversizedConnectionConfig.aria2StartArguments())
+  let adaptiveLimitReady = oversizedConnectionConfig.adaptiveConnectionCeiling == 64
+    && Aria2Limits.clampConnections(0) == 1
+    && Aria2Limits.clampConnections(128) == 64
+    && oversizedConnectionArguments.contains("--max-connection-per-server=64")
+    && oversizedConnectionArguments.contains("--split=64")
+  let adaptiveProfileLimitReady: Bool = {
+    let profileURL = FileManager.default.temporaryDirectory
+      .appendingPathComponent("motrix-native-adaptive-check-\(UUID().uuidString).json")
+    defer { try? FileManager.default.removeItem(at: profileURL) }
+
+    AdaptiveConnectionProfileStore.save(["example.invalid": 128], to: profileURL)
+    return AdaptiveConnectionProfileStore.load(from: profileURL)["example.invalid"] == 64
+  }()
   let adaptiveStartReady = config.adaptiveStartingConnections == min(48, config.adaptiveConnectionCeiling)
+    && config.adaptiveConnectionCeiling <= Aria2Limits.maximumConnectionsPerServer
   let syntheticTorrent = Aria2Task(
     id: "self-check",
     status: "complete",
@@ -103,23 +122,31 @@ if CommandLine.arguments.contains("--self-check") {
   let aria2Build = Aria2BuildInfo.load()
   let aria2VersionOutput = config.aria2BinaryPath.flatMap(Aria2BinaryInspector.versionOutput)
   let aria2Architectures = config.aria2BinaryPath.flatMap(Aria2BinaryInspector.architectures) ?? ""
+  let aria2ConnectionLimitReady = config.aria2BinaryPath.map {
+    Aria2BinaryInspector.acceptsConnectionLimit(at: $0, limit: 64)
+  } ?? false
   let aria2BuildReady = aria2Build?.architecture == "arm64"
     && aria2Build?.aria2Commit == "9e7273583f83e881e3ec067b523ba88724088d2f"
     && aria2Build?.aria2Version == "1.37.0-git.9e72735"
+    && aria2Build?.compatibility.maxConnectionsPerServer == 64
     && aria2Build?.tlsBackend == "AppleTLS"
     && aria2Architectures == "arm64"
+    && aria2ConnectionLimitReady
     && aria2VersionOutput?.contains("aria2 version 1.37.0-git.9e72735") == true
   let result: [String: Any] = [
     "aria2Binary": config.aria2BinaryPath?.path ?? "",
     "aria2BinaryReady": binaryReady,
     "aria2Architecture": aria2Architectures,
     "aria2BuildReady": aria2BuildReady,
+    "aria2ConnectionLimitReady": aria2ConnectionLimitReady,
     "aria2Commit": aria2Build?.aria2Commit ?? "",
     "aria2Version": aria2Build?.aria2Version ?? "",
     "aria2Config": config.aria2ConfigPath.path,
     "aria2ConfigReady": configReady,
     "adaptiveConnectionCeiling": config.adaptiveConnectionCeiling,
     "adaptiveStartingConnections": config.adaptiveStartingConnections,
+    "adaptiveLimitReady": adaptiveLimitReady,
+    "adaptiveProfileLimitReady": adaptiveProfileLimitReady,
     "adaptiveStartReady": adaptiveStartReady,
     "rpcPort": config.rpcPort,
     "seedTimeArgument": seedTimeArgument,
@@ -141,7 +168,7 @@ if CommandLine.arguments.contains("--self-check") {
   let data = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
   FileHandle.standardOutput.write(data)
   FileHandle.standardOutput.write(Data("\n".utf8))
-  exit(binaryReady && aria2BuildReady && configReady && supportReady && controlFileMappingReady && pieceBitfieldReady && trackerNormalizationReady && configuredTrackerArgumentReady && cleanFileLoggingReady && logRotationReady && localizationReady && languageSwitchReady && seedingDisableReady && adaptiveStartReady ? 0 : 1)
+  exit(binaryReady && aria2BuildReady && configReady && supportReady && controlFileMappingReady && pieceBitfieldReady && trackerNormalizationReady && configuredTrackerArgumentReady && cleanFileLoggingReady && logRotationReady && localizationReady && languageSwitchReady && seedingDisableReady && adaptiveStartReady && adaptiveLimitReady && adaptiveProfileLimitReady ? 0 : 1)
 }
 
 let app = NSApplication.shared

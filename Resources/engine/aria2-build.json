@@ -2,6 +2,9 @@
   "architecture": "arm64",
   "aria2Commit": "9e7273583f83e881e3ec067b523ba88724088d2f",
   "aria2Version": "1.37.0-git.9e72735",
+  "compatibility": {
+    "maxConnectionsPerServer": 64
+  },
   "dependencies": {
     "c-ares": "1.34.8",
     "expat": "2.8.2",

@@ -546,6 +546,7 @@ final class StatusController: NSObject, NSMenuDelegate {
       details.insert(contentsOf: [
         L10n.format("engine_info.build", build.aria2Version, build.shortCommit),
         L10n.format("engine_info.platform", build.architecture, build.minimumMacOS, build.tlsBackend),
+        L10n.format("engine_info.compatibility", String(build.compatibility.maxConnectionsPerServer)),
         L10n.format("engine_info.dependencies", build.dependencySummary)
       ], at: 0)
     }

@@ -706,8 +706,12 @@ struct SettingsDraft {
     maxOverallDownloadLimit = Self.string(system["max-overall-download-limit"], fallback: "0")
     maxOverallUploadLimit = Self.string(system["max-overall-upload-limit"], fallback: "0")
     maxConcurrentDownloads = Self.int(system["max-concurrent-downloads"], fallback: 5)
-    maxConnectionPerServer = Self.int(system["max-connection-per-server"], fallback: 64)
-    split = Self.int(system["split"], fallback: 64)
+    maxConnectionPerServer = Aria2Limits.clampConnections(
+      Self.int(system["max-connection-per-server"], fallback: Aria2Limits.maximumConnectionsPerServer)
+    )
+    split = Aria2Limits.clampConnections(
+      Self.int(system["split"], fallback: Aria2Limits.maximumConnectionsPerServer)
+    )
     pause = Self.bool(system["pause"], fallback: true)
     continueDownloads = Self.bool(system["continue"], fallback: true)
     btSaveMetadata = Self.bool(system["bt-save-metadata"], fallback: true)
@@ -736,8 +740,8 @@ struct SettingsDraft {
     result["max-overall-download-limit"] = maxOverallDownloadLimit
     result["max-overall-upload-limit"] = maxOverallUploadLimit
     result["max-concurrent-downloads"] = maxConcurrentDownloads
-    result["max-connection-per-server"] = maxConnectionPerServer
-    result["split"] = split
+    result["max-connection-per-server"] = Aria2Limits.clampConnections(maxConnectionPerServer)
+    result["split"] = Aria2Limits.clampConnections(split)
     result["pause"] = pause
     result["continue"] = continueDownloads
     result["bt-save-metadata"] = btSaveMetadata

@@ -38,6 +38,11 @@ if ! "$ENGINE_BINARY" --version | grep -F "aria2 version $EXPECTED_ARIA2_VERSION
   exit 1
 fi
 
+if ! "$ENGINE_BINARY" --max-connection-per-server=64 --split=64 --version >/dev/null; then
+  echo "The bundled aria2 engine is missing Motrix's 64-connection compatibility patch." >&2
+  exit 1
+fi
+
 if otool -L "$ENGINE_BINARY" | tail -n +2 | grep -vE '^[[:space:]]+(/System/Library/|/usr/lib/)' >/dev/null; then
   echo "The bundled aria2 engine has a non-system dynamic dependency." >&2
   otool -L "$ENGINE_BINARY" >&2

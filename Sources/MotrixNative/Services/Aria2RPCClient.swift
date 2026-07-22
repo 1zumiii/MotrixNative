@@ -316,9 +316,8 @@ final class Aria2RPCClient {
     options["dir"] = directory.path
     if config.adaptiveConnectionsEnabled, let host = URL(string: uri)?.host?.lowercased() {
       let learned = AdaptiveConnectionProfileStore.load(from: config.adaptiveProfilePath)[host]
-      let connections = min(
-        config.adaptiveConnectionCeiling,
-        max(1, learned ?? config.adaptiveStartingConnections)
+      let connections = Aria2Limits.clampConnections(
+        min(config.adaptiveConnectionCeiling, learned ?? config.adaptiveStartingConnections)
       )
       options["split"] = "\(connections)"
       options["max-connection-per-server"] = "\(connections)"

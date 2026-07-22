@@ -105,12 +105,17 @@ final class Aria2Engine {
     try? fileManager.createDirectory(at: config.supportDirectory, withIntermediateDirectories: true)
 
     let process = Process()
+    let diagnosticsPipe = Pipe()
     process.executableURL = binary
     process.currentDirectoryURL = config.supportDirectory
     process.arguments = config.aria2StartArguments()
     process.terminationHandler = { [weak self] process in
+      let diagnostics = String(
+        data: diagnosticsPipe.fileHandleForReading.readDataToEndOfFile(),
+        encoding: .utf8
+      ) ?? ""
       Task { @MainActor in
-        self?.handleProcessExit(process)
+        self?.handleProcessExit(process, diagnostics: diagnostics)
       }
     }
     let logURL = config.aria2LogPath
@@ -120,7 +125,7 @@ final class Aria2Engine {
       fileManager.createFile(atPath: logURL.path, contents: nil)
     }
     process.standardOutput = FileHandle.nullDevice
-    process.standardError = FileHandle.nullDevice
+    process.standardError = diagnosticsPipe
 
     do {
       try process.run()
@@ -148,7 +153,7 @@ final class Aria2Engine {
     return Date().timeIntervalSince(lastStartAttempt) >= TimeInterval(delay)
   }
 
-  private func handleProcessExit(_ process: Process) {
+  private func handleProcessExit(_ process: Process, diagnostics: String) {
     guard self.process === process else {
       return
     }
@@ -161,7 +166,15 @@ final class Aria2Engine {
 
     consecutiveFailures += 1
     statusText = L10n.tr("engine.crashed")
-    lastError = "exit \(process.terminationStatus)"
+    let normalizedDiagnostics = diagnostics.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !normalizedDiagnostics.isEmpty {
+      appendLog("aria2 exited with status \(process.terminationStatus):\n\(String(normalizedDiagnostics.prefix(4096)))")
+    }
+    let firstDiagnosticLine = normalizedDiagnostics
+      .split(whereSeparator: { $0.isNewline })
+      .first
+      .map(String.init)
+    lastError = firstDiagnosticLine ?? "exit \(process.terminationStatus)"
   }
 
   private func appendLog(_ message: String) {

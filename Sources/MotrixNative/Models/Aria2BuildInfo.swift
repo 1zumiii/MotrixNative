@@ -1,9 +1,14 @@
 import Foundation
 
 struct Aria2BuildInfo: Decodable {
+  struct Compatibility: Decodable {
+    let maxConnectionsPerServer: Int
+  }
+
   let architecture: String
   let aria2Commit: String
   let aria2Version: String
+  let compatibility: Compatibility
   let dependencies: [String: String]
   let minimumMacOS: String
   let tlsBackend: String
@@ -44,6 +49,17 @@ enum Aria2BinaryInspector {
       executable: URL(fileURLWithPath: "/usr/bin/lipo"),
       arguments: ["-archs", binaryURL.path]
     )?.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
+  static func acceptsConnectionLimit(at binaryURL: URL, limit: Int) -> Bool {
+    run(
+      executable: binaryURL,
+      arguments: [
+        "--max-connection-per-server=\(limit)",
+        "--split=\(limit)",
+        "--version"
+      ]
+    ) != nil
   }
 
   private static func run(executable: URL, arguments: [String]) -> String? {

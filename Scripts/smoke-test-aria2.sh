@@ -59,6 +59,8 @@ fi
   --rpc-listen-port="$RPC_PORT" \
   --rpc-secret="$RPC_SECRET" \
   --dir="$DOWNLOAD_DIR" \
+  --max-connection-per-server=64 \
+  --split=64 \
   --disable-ipv6=true \
   --file-allocation=none \
   --console-log-level=warn \

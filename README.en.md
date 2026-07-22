@@ -58,7 +58,7 @@ cd MotrixNative
 Scripts/build-aria2-arm64.sh --install
 ```
 
-The script pins aria2 commit `9e7273583f83e881e3ec067b523ba88724088d2f`, verifies every source archive, and statically links zlib, Expat, SQLite, c-ares, and a security-patched libssh2/OpenSSL stack. aria2 itself uses the macOS AppleTLS backend for HTTPS, and the resulting executable dynamically links only system libraries. The upstream suite runs 979 tests. Some macOS network setups do not loop an LPD multicast packet back to its sender, so the script permits that exact environmental timeout only; the other 978 tests must pass.
+The script pins aria2 commit `9e7273583f83e881e3ec067b523ba88724088d2f`, restores Motrix's compatibility limit of 64 connections per server, verifies every source archive, and statically links zlib, Expat, SQLite, c-ares, and a security-patched libssh2/OpenSSL stack. aria2 itself uses the macOS AppleTLS backend for HTTPS, and the resulting executable dynamically links only system libraries. The upstream suite runs 979 tests. Some macOS network setups do not loop an LPD multicast packet back to its sender, so the script permits that exact environmental timeout only; the other 978 tests must pass.
 
 Then build the Swift app:
 

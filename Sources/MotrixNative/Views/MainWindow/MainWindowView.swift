@@ -6,7 +6,7 @@ struct MainWindowView: View {
   var body: some View {
     HStack(spacing: 0) {
       sidebar
-        .frame(width: 184)
+        .frame(width: 208)
 
       content
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -272,6 +272,8 @@ private struct SidebarFilterRow: View {
         Text(filter.title)
           .font(.system(size: 13, weight: .semibold))
           .foregroundStyle(selected ? .primary : .secondary)
+          .lineLimit(1)
+          .minimumScaleFactor(0.9)
 
         Spacer()
 
@@ -340,6 +342,8 @@ private struct SidebarPreferenceRow: View {
         Text(section.title)
           .font(.system(size: 13, weight: .semibold))
           .foregroundStyle(selected ? .primary : .secondary)
+          .lineLimit(1)
+          .minimumScaleFactor(0.9)
 
         Spacer()
       }
@@ -376,4 +380,3 @@ private struct SearchField: View {
     }
   }
 }
-

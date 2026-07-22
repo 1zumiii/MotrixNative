@@ -41,7 +41,7 @@ struct MotrixConfig {
   var adaptiveConnectionCeiling: Int {
     let split = intValue(systemConfig["split"]) ?? 64
     let perServer = intValue(systemConfig["max-connection-per-server"]) ?? 64
-    return min(128, max(1, min(split, perServer)))
+    return Aria2Limits.clampConnections(min(split, perServer))
   }
 
   var adaptiveStartingConnections: Int {
@@ -161,6 +161,12 @@ struct MotrixConfig {
     for key in ["log", "log-level", "quiet", "show-console-readout", "enable-color"] {
       engineConfig.removeValue(forKey: key)
     }
+    engineConfig["max-connection-per-server"] = Aria2Limits.clampConnections(
+      intValue(engineConfig["max-connection-per-server"]) ?? Aria2Limits.maximumConnectionsPerServer
+    )
+    engineConfig["split"] = Aria2Limits.clampConnections(
+      intValue(engineConfig["split"]) ?? Aria2Limits.maximumConnectionsPerServer
+    )
     let seedingEnabled = boolValue(userConfig["seeding-enabled"])
       ?? ((intValue(engineConfig["seed-time"]) ?? 60) != 0)
     if !seedingEnabled {

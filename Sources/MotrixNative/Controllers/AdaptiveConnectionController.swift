@@ -11,9 +11,9 @@ enum AdaptiveConnectionProfileStore {
 
     return object.reduce(into: [:]) { result, entry in
       if let value = entry.value as? Int {
-        result[entry.key] = value
+        result[entry.key] = Aria2Limits.clampConnections(value)
       } else if let value = entry.value as? NSNumber {
-        result[entry.key] = value.intValue
+        result[entry.key] = Aria2Limits.clampConnections(value.intValue)
       }
     }
   }
@@ -24,7 +24,8 @@ enum AdaptiveConnectionProfileStore {
         at: url.deletingLastPathComponent(),
         withIntermediateDirectories: true
       )
-      let data = try JSONSerialization.data(withJSONObject: profiles, options: [.prettyPrinted, .sortedKeys])
+      let clampedProfiles = profiles.mapValues(Aria2Limits.clampConnections)
+      let data = try JSONSerialization.data(withJSONObject: clampedProfiles, options: [.prettyPrinted, .sortedKeys])
       try data.write(to: url, options: .atomic)
     } catch {
       // Adaptive history is only an optimization; downloads must continue if it cannot be persisted.
@@ -106,7 +107,7 @@ final class AdaptiveConnectionController {
       return
     }
 
-    let ceiling = min(config.adaptiveConnectionCeiling, sharedBudget)
+    let ceiling = Aria2Limits.clampConnections(min(config.adaptiveConnectionCeiling, sharedBudget))
     guard ceiling >= 1 else {
       return
     }
@@ -200,6 +201,7 @@ final class AdaptiveConnectionController {
   }
 
   private func apply(_ connections: Int, to gid: String) async throws {
+    let connections = Aria2Limits.clampConnections(connections)
     try await client.changeOption(gid, options: [
       "split": "\(connections)",
       "max-connection-per-server": "\(connections)"
@@ -207,11 +209,13 @@ final class AdaptiveConnectionController {
   }
 
   private func nextConnectionLevel(after current: Int, ceiling: Int) -> Int? {
-    [8, 16, 32, 64, 96, 128].first { $0 > current && $0 <= ceiling }
+    let ceiling = Aria2Limits.clampConnections(ceiling)
+    return [8, 16, 32, 64].first { $0 > current && $0 <= ceiling }
   }
 
   private func finish(_ state: inout ProbeState) {
     state.isFinished = true
+    state.bestConnections = Aria2Limits.clampConnections(state.bestConnections)
     profiles[state.host] = state.bestConnections
     AdaptiveConnectionProfileStore.save(profiles, to: config.adaptiveProfilePath)
     lastResult = L10n.format("adaptive.result", state.host, String(state.bestConnections))

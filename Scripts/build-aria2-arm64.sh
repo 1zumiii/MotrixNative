@@ -207,6 +207,7 @@ configure_make_install "$SOURCE_DIR/libssh2" \
   --with-libssl-prefix="$PREFIX_DIR"
 
 extract "$ARIA2_ARCHIVE" "$SOURCE_DIR/aria2"
+patch -d "$SOURCE_DIR/aria2" -p1 < "$ROOT_DIR/Patches/aria2-max-connections-per-server.patch"
 perl -pi -e "s/AC_INIT\(\[aria2\],\[1\.37\.0\]/AC_INIT([aria2],[$ARIA2_VERSION]/" \
   "$SOURCE_DIR/aria2/configure.ac"
 (
@@ -262,6 +263,7 @@ if otool -L "$OUTPUT_DIR/aria2c" | tail -n +2 | grep -vE '^[[:space:]]+(/System/
 fi
 
 "$OUTPUT_DIR/aria2c" --version
+"$OUTPUT_DIR/aria2c" --max-connection-per-server=64 --split=64 --version >/dev/null
 
 if [ "${1:-}" = "--install" ]; then
   cp "$OUTPUT_DIR/aria2c" "$ROOT_DIR/Resources/engine/aria2c"

@@ -39,7 +39,7 @@ cd MotrixNative
 Scripts/build-aria2-arm64.sh --install
 ```
 
-脚本固定到 aria2 commit `9e7273583f83e881e3ec067b523ba88724088d2f`，校验全部源码包，并静态编入 zlib、Expat、SQLite、c-ares 和带安全补丁的 libssh2/OpenSSL。aria2 自身的 HTTPS 使用系统 AppleTLS，最终产物只动态链接 macOS 系统库。构建会运行上游 979 项测试；部分 macOS 网络环境不会把 LPD 组播包回送给发送端，因此仅对这一条精确的组播超时作环境性豁免，其余 978 项必须通过。
+脚本固定到 aria2 commit `9e7273583f83e881e3ec067b523ba88724088d2f`，恢复 Motrix 所需的单服务器 64 连接兼容上限，校验全部源码包，并静态编入 zlib、Expat、SQLite、c-ares 和带安全补丁的 libssh2/OpenSSL。aria2 自身的 HTTPS 使用系统 AppleTLS，最终产物只动态链接 macOS 系统库。构建会运行上游 979 项测试；部分 macOS 网络环境不会把 LPD 组播包回送给发送端，因此仅对这一条精确的组播超时作环境性豁免，其余 978 项必须通过。
 
 然后构建 Swift 应用：
 
