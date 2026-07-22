@@ -11,11 +11,16 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     self.model = MainWindowModel(config: config, client: client)
 
     let baseSize = NSSize(width: 1080, height: 720)
-    let desiredSize = NSSize(width: baseSize.width * 1.5, height: baseSize.height * 1.5)
+    let widthReduction = 0.85 * 0.90
+    let heightReduction = 0.85
+    let desiredSize = NSSize(
+      width: baseSize.width * 1.5 * widthReduction,
+      height: baseSize.height * 1.5 * heightReduction
+    )
     let visibleSize = NSScreen.main?.visibleFrame.size ?? desiredSize
     let initialSize = NSSize(
-      width: min(desiredSize.width, visibleSize.width * 0.96),
-      height: min(desiredSize.height, visibleSize.height * 0.94)
+      width: min(desiredSize.width, visibleSize.width * 0.96 * widthReduction),
+      height: min(desiredSize.height, visibleSize.height * 0.94 * heightReduction)
     )
     self.initialContentSize = initialSize
 
