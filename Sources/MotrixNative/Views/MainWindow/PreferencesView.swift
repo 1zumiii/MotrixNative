@@ -136,8 +136,16 @@ struct PreferencesView: View {
 
       PreferenceGroup(title: L10n.tr("preferences.group.scheduling")) {
         preferenceToggle(
-          L10n.tr("adaptive.title"),
-          subtitle: L10n.tr("adaptive.subtitle"),
+          L10n.tr("adaptive_split.title"),
+          subtitle: L10n.tr("adaptive_split.subtitle"),
+          image: "square.grid.3x3.fill",
+          color: .purple,
+          isOn: $model.settings.adaptiveSplits
+        )
+        PreferenceDivider()
+        preferenceToggle(
+          L10n.tr("adaptive_connection.title"),
+          subtitle: L10n.tr("adaptive_connection.subtitle"),
           image: "speedometer",
           color: .teal,
           isOn: $model.settings.adaptiveConnections
@@ -153,9 +161,9 @@ struct PreferencesView: View {
         PreferenceDivider()
         preferenceStepper(L10n.tr("preferences.concurrent_downloads.title"), subtitle: L10n.tr("preferences.concurrent_downloads.subtitle"), image: "square.stack.3d.up.fill", color: .blue, value: $model.settings.maxConcurrentDownloads, range: 1...50)
         PreferenceDivider()
-        preferenceNumberField(L10n.tr("preferences.connections_per_server.title"), subtitle: L10n.tr("preferences.connections_per_server.subtitle"), image: "server.rack", color: .orange, value: $model.settings.maxConnectionPerServer, range: Aria2Limits.connectionRange)
+        preferenceNumberField(L10n.tr("preferences.connections_per_server.title"), subtitle: model.settings.adaptiveConnections ? L10n.tr("preferences.connections_per_server.adaptive_subtitle") : L10n.tr("preferences.connections_per_server.fixed_subtitle"), image: "server.rack", color: .orange, value: $model.settings.maxConnectionPerServer, range: Aria2Limits.connectionRange)
         PreferenceDivider()
-        preferenceNumberField(L10n.tr("preferences.split.title"), subtitle: L10n.tr("preferences.split.subtitle"), image: "square.grid.3x3.fill", color: .purple, value: $model.settings.split, range: Aria2Limits.connectionRange)
+        preferenceNumberField(L10n.tr("preferences.split.title"), subtitle: model.settings.adaptiveSplits ? L10n.tr("preferences.split.adaptive_subtitle") : L10n.tr("preferences.split.fixed_subtitle"), image: "square.grid.3x3.fill", color: .purple, value: $model.settings.split, range: Aria2Limits.connectionRange)
       }
     }
   }

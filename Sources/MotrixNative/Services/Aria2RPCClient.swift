@@ -314,13 +314,8 @@ final class Aria2RPCClient {
   func addURI(_ uri: String, directory: URL, additionalOptions: [String: Any] = [:]) async throws {
     var options: [String: Any] = additionalOptions
     options["dir"] = directory.path
-    if config.adaptiveConnectionsEnabled, let host = URL(string: uri)?.host?.lowercased() {
-      let learned = AdaptiveConnectionProfileStore.load(from: config.adaptiveProfilePath)[host]
-      let connections = Aria2Limits.clampConnections(
-        min(config.adaptiveConnectionCeiling, learned ?? config.adaptiveStartingConnections)
-      )
-      options["split"] = "\(connections)"
-      options["max-connection-per-server"] = "\(connections)"
+    for (key, value) in config.adaptiveTaskOptions(for: uri) {
+      options[key] = value
     }
     let _: String = try await call("aria2.addUri", params: [[uri], options])
   }

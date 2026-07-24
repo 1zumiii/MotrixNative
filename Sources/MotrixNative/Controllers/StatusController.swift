@@ -5,7 +5,8 @@ final class StatusController: NSObject, NSMenuDelegate {
   private var config: MotrixConfig
   private let engine: Aria2Engine
   private let client: Aria2RPCClient
-  private let adaptiveController: AdaptiveConnectionController
+  private let adaptiveSplitController: AdaptiveSplitController
+  private let adaptiveConnectionController: AdaptiveConnectionController
   private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
   private let menu = NSMenu()
 
@@ -24,7 +25,8 @@ final class StatusController: NSObject, NSMenuDelegate {
     self.config = config
     self.engine = engine
     self.client = client
-    self.adaptiveController = AdaptiveConnectionController(config: config, client: client)
+    self.adaptiveSplitController = AdaptiveSplitController(config: config, client: client)
+    self.adaptiveConnectionController = AdaptiveConnectionController(config: config, client: client)
     super.init()
   }
 
@@ -81,7 +83,8 @@ final class StatusController: NSObject, NSMenuDelegate {
       self.tasks = tasks
       self.progressSummary = makeProgressSummary(tasks)
       self.lastError = nil
-      await adaptiveController.observe(tasks)
+      await adaptiveSplitController.observe(tasks)
+      await adaptiveConnectionController.observe(tasks)
       renderMenu()
     } catch {
       self.lastError = String(describing: error)
@@ -291,8 +294,15 @@ final class StatusController: NSObject, NSMenuDelegate {
     let item = menuItem(title: L10n.tr("status_menu.engine_and_diagnostics"), systemImage: "bolt.horizontal.circle", action: nil)
     let submenu = NSMenu()
     submenu.addItem(engineStatusItem())
+    let adaptiveSplitItem = NSMenuItem(
+      title: L10n.format("status_menu.adaptive_split_status", adaptiveSplitController.statusText),
+      action: nil,
+      keyEquivalent: ""
+    )
+    adaptiveSplitItem.isEnabled = false
+    submenu.addItem(adaptiveSplitItem)
     let adaptiveItem = NSMenuItem(
-      title: L10n.format("status_menu.adaptive_status", adaptiveController.statusText),
+      title: L10n.format("status_menu.adaptive_status", adaptiveConnectionController.statusText),
       action: nil,
       keyEquivalent: ""
     )
@@ -439,7 +449,8 @@ final class StatusController: NSObject, NSMenuDelegate {
       config = latestConfig
       client.updateConfig(latestConfig)
       engine.updateConfig(latestConfig)
-      adaptiveController.updateConfig(latestConfig)
+      adaptiveSplitController.updateConfig(latestConfig)
+      adaptiveConnectionController.updateConfig(latestConfig)
       await engine.restart(client: client)
       await refresh()
     }

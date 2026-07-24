@@ -22,6 +22,16 @@ struct MotrixConfig {
     return true
   }
 
+  var adaptiveSplitsEnabled: Bool {
+    if let value = userConfig["adaptive-splits"] as? Bool {
+      return value
+    }
+    if let value = userConfig["adaptive-splits"] as? NSNumber {
+      return value.boolValue
+    }
+    return true
+  }
+
   var openAtLoginEnabled: Bool {
     boolValue(userConfig["open-at-login"]) ?? false
   }
@@ -39,17 +49,42 @@ struct MotrixConfig {
   }
 
   var adaptiveConnectionCeiling: Int {
-    let split = intValue(systemConfig["split"]) ?? 64
     let perServer = intValue(systemConfig["max-connection-per-server"]) ?? 64
-    return Aria2Limits.clampConnections(min(split, perServer))
+    return Aria2Limits.clampConnections(perServer)
+  }
+
+  var adaptiveSplitCeiling: Int {
+    Aria2Limits.clampConnections(intValue(systemConfig["split"]) ?? 64)
   }
 
   var adaptiveStartingConnections: Int {
     min(48, adaptiveConnectionCeiling)
   }
 
+  var adaptiveInitialSplit: Int {
+    AdaptiveSplitPolicy.initialSplit(limit: adaptiveSplitCeiling)
+  }
+
   var adaptiveProfilePath: URL {
     supportDirectory.appendingPathComponent("adaptive-hosts-v2.json")
+  }
+
+  func adaptiveTaskOptions(for uri: String) -> [String: String] {
+    var options: [String: String] = [:]
+
+    if adaptiveSplitsEnabled {
+      options["split"] = "\(adaptiveInitialSplit)"
+    }
+
+    if adaptiveConnectionsEnabled, let host = URL(string: uri)?.host?.lowercased() {
+      let learned = AdaptiveConnectionProfileStore.load(from: adaptiveProfilePath)[host]
+      let connections = Aria2Limits.clampConnections(
+        min(adaptiveConnectionCeiling, learned ?? adaptiveStartingConnections)
+      )
+      options["max-connection-per-server"] = "\(connections)"
+    }
+
+    return options
   }
 
   private static let numericAria2Options: Set<String> = [

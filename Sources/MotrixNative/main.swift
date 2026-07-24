@@ -51,6 +51,55 @@ if CommandLine.arguments.contains("--self-check") {
   }()
   let adaptiveStartReady = config.adaptiveStartingConnections == min(48, config.adaptiveConnectionCeiling)
     && config.adaptiveConnectionCeiling <= Aria2Limits.maximumConnectionsPerServer
+  var decoupledAdaptiveSystem = config.systemConfig
+  decoupledAdaptiveSystem["max-connection-per-server"] = 32
+  decoupledAdaptiveSystem["split"] = 64
+  var decoupledAdaptiveUser = config.userConfig
+  decoupledAdaptiveUser["adaptive-connections"] = false
+  decoupledAdaptiveUser["adaptive-splits"] = true
+  let decoupledAdaptiveConfig = config.updating(
+    system: decoupledAdaptiveSystem,
+    user: decoupledAdaptiveUser
+  )
+  let adaptiveModesReady = decoupledAdaptiveConfig.adaptiveConnectionCeiling == 32
+    && decoupledAdaptiveConfig.adaptiveSplitCeiling == 64
+    && !decoupledAdaptiveConfig.adaptiveConnectionsEnabled
+    && decoupledAdaptiveConfig.adaptiveSplitsEnabled
+  let taskTuningURI = "https://motrix-native-self-check.invalid/archive.bin"
+  let splitOnlyOptions = decoupledAdaptiveConfig.adaptiveTaskOptions(for: taskTuningURI)
+  decoupledAdaptiveUser["adaptive-connections"] = true
+  decoupledAdaptiveUser["adaptive-splits"] = false
+  let connectionOnlyOptions = config.updating(
+    system: decoupledAdaptiveSystem,
+    user: decoupledAdaptiveUser
+  ).adaptiveTaskOptions(for: taskTuningURI)
+  decoupledAdaptiveUser["adaptive-connections"] = true
+  decoupledAdaptiveUser["adaptive-splits"] = true
+  let bothAdaptiveOptions = config.updating(
+    system: decoupledAdaptiveSystem,
+    user: decoupledAdaptiveUser
+  ).adaptiveTaskOptions(for: taskTuningURI)
+  decoupledAdaptiveUser["adaptive-connections"] = false
+  decoupledAdaptiveUser["adaptive-splits"] = false
+  let fixedOptions = config.updating(
+    system: decoupledAdaptiveSystem,
+    user: decoupledAdaptiveUser
+  ).adaptiveTaskOptions(for: taskTuningURI)
+  let adaptiveCombinationsReady = Set(splitOnlyOptions.keys) == ["split"]
+    && Set(connectionOnlyOptions.keys) == ["max-connection-per-server"]
+    && Set(bothAdaptiveOptions.keys) == ["split", "max-connection-per-server"]
+    && fixedOptions.isEmpty
+  let mebibyte = Int64(1024 * 1024)
+  let gibibyte = Int64(1024 * 1024 * 1024)
+  let adaptiveSplitReady = AdaptiveSplitPolicy.initialSplit(limit: 64) == 8
+    && AdaptiveSplitPolicy.recommendedSplit(totalLength: 16 * mebibyte, limit: 64) == 1
+    && AdaptiveSplitPolicy.recommendedSplit(totalLength: 64 * mebibyte, limit: 64) == 4
+    && AdaptiveSplitPolicy.recommendedSplit(totalLength: 256 * mebibyte, limit: 64) == 8
+    && AdaptiveSplitPolicy.recommendedSplit(totalLength: 1 * gibibyte, limit: 64) == 16
+    && AdaptiveSplitPolicy.recommendedSplit(totalLength: 4 * gibibyte, limit: 64) == 32
+    && AdaptiveSplitPolicy.recommendedSplit(totalLength: 16 * gibibyte, limit: 64) == 48
+    && AdaptiveSplitPolicy.recommendedSplit(totalLength: 64 * gibibyte, limit: 64) == 64
+    && AdaptiveSplitPolicy.recommendedSplit(totalLength: 64 * gibibyte, limit: 24) == 24
   let syntheticTorrent = Aria2Task(
     id: "self-check",
     status: "complete",
@@ -162,7 +211,10 @@ if CommandLine.arguments.contains("--self-check") {
     "adaptiveConnectionCeiling": config.adaptiveConnectionCeiling,
     "adaptiveStartingConnections": config.adaptiveStartingConnections,
     "adaptiveLimitReady": adaptiveLimitReady,
+    "adaptiveModesReady": adaptiveModesReady,
+    "adaptiveCombinationsReady": adaptiveCombinationsReady,
     "adaptiveProfileLimitReady": adaptiveProfileLimitReady,
+    "adaptiveSplitReady": adaptiveSplitReady,
     "adaptiveStartReady": adaptiveStartReady,
     "rpcPort": config.rpcPort,
     "seedTimeArgument": seedTimeArgument,
@@ -185,7 +237,7 @@ if CommandLine.arguments.contains("--self-check") {
   let data = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
   FileHandle.standardOutput.write(data)
   FileHandle.standardOutput.write(Data("\n".utf8))
-  exit(binaryReady && aria2BuildReady && configReady && supportReady && controlFileMappingReady && pieceBitfieldReady && trackerNormalizationReady && configuredTrackerArgumentReady && cleanFileLoggingReady && logRotationReady && localizationReady && languageSwitchReady && seedingDisableReady && adaptiveStartReady && adaptiveLimitReady && adaptiveProfileLimitReady && proxyArgumentsReady ? 0 : 1)
+  exit(binaryReady && aria2BuildReady && configReady && supportReady && controlFileMappingReady && pieceBitfieldReady && trackerNormalizationReady && configuredTrackerArgumentReady && cleanFileLoggingReady && logRotationReady && localizationReady && languageSwitchReady && seedingDisableReady && adaptiveStartReady && adaptiveLimitReady && adaptiveProfileLimitReady && adaptiveModesReady && adaptiveCombinationsReady && adaptiveSplitReady && proxyArgumentsReady ? 0 : 1)
 }
 
 let app = NSApplication.shared

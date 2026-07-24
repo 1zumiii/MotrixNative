@@ -750,6 +750,7 @@ struct SettingsDraft {
   var openAtLogin = false
   var taskNotification = true
   var noConfirmBeforeDeleteTask = false
+  var adaptiveSplits = true
   var adaptiveConnections = true
   var appLanguage = L10n.Language.system.rawValue
 
@@ -799,6 +800,7 @@ struct SettingsDraft {
     openAtLogin = Self.bool(user["open-at-login"], fallback: false)
     taskNotification = Self.bool(user["task-notification"], fallback: true)
     noConfirmBeforeDeleteTask = Self.bool(user["no-confirm-before-delete-task"], fallback: false)
+    adaptiveSplits = Self.bool(user["adaptive-splits"], fallback: true)
     adaptiveConnections = Self.bool(user["adaptive-connections"], fallback: true)
     appLanguage = user["app-language"] as? String ?? L10n.Language.system.rawValue
   }
@@ -830,6 +832,7 @@ struct SettingsDraft {
     result["open-at-login"] = openAtLogin
     result["task-notification"] = taskNotification
     result["no-confirm-before-delete-task"] = noConfirmBeforeDeleteTask
+    result["adaptive-splits"] = adaptiveSplits
     result["adaptive-connections"] = adaptiveConnections
     result["app-language"] = appLanguage
     result["seeding-enabled"] = seedingEnabled
