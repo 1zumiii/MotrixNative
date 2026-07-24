@@ -108,16 +108,18 @@ struct PreferenceDivider: View {
 
 struct PortField: View {
   @Binding var value: Int
+  let range: ClosedRange<Int>
   @State private var text: String
   @FocusState private var isFocused: Bool
 
-  init(value: Binding<Int>) {
+  init(value: Binding<Int>, range: ClosedRange<Int> = 1024...65535) {
     self._value = value
+    self.range = range
     self._text = State(initialValue: String(value.wrappedValue))
   }
 
   var body: some View {
-    TextField("1024-65535", text: $text)
+    TextField("\(range.lowerBound)-\(range.upperBound)", text: $text)
       .textFieldStyle(.roundedBorder)
       .font(.system(size: 13, design: .monospaced))
       .multilineTextAlignment(.trailing)
@@ -130,7 +132,7 @@ struct PortField: View {
           return
         }
 
-        if let port = Int(digits), (1024...65535).contains(port) {
+        if let port = Int(digits), range.contains(port) {
           value = port
         }
       }
@@ -153,7 +155,7 @@ struct PortField: View {
       return
     }
 
-    value = min(65535, max(1024, entered))
+    value = min(range.upperBound, max(range.lowerBound, entered))
     text = String(value)
   }
 }
@@ -277,4 +279,3 @@ struct RPCSecretField: View {
     return String((0..<32).compactMap { _ in alphabet.randomElement(using: &generator) })
   }
 }
-

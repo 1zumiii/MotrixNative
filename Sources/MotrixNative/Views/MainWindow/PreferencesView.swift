@@ -262,6 +262,85 @@ struct PreferencesView: View {
 
   private var connectionSettings: some View {
     VStack(alignment: .leading, spacing: 24) {
+      PreferenceGroup(
+        title: L10n.tr("preferences.group.proxy"),
+        footer: model.proxyTestMessage ?? L10n.tr("preferences.proxy.footer")
+      ) {
+        PreferenceRow(
+          title: L10n.tr("preferences.proxy.mode.title"),
+          subtitle: L10n.tr("preferences.proxy.mode.subtitle"),
+          image: "network",
+          color: .indigo
+        ) {
+          Picker("", selection: $model.settings.proxyMode) {
+            ForEach(ProxyMode.allCases) { mode in
+              Text(mode.title).tag(mode)
+            }
+          }
+          .labelsHidden()
+          .frame(width: 150)
+        }
+
+        if model.settings.proxyMode == .manual {
+          PreferenceDivider()
+          PreferenceRow(
+            title: L10n.tr("preferences.proxy.scheme.title"),
+            subtitle: L10n.tr("preferences.proxy.scheme.subtitle"),
+            image: "link",
+            color: .purple
+          ) {
+            Picker("", selection: $model.settings.proxyScheme) {
+              ForEach(ProxyScheme.allCases) { scheme in
+                Text(scheme.title).tag(scheme)
+              }
+            }
+            .labelsHidden()
+            .frame(width: 100)
+          }
+
+          PreferenceDivider()
+          PreferenceRow(
+            title: L10n.tr("preferences.proxy.server.title"),
+            subtitle: L10n.tr("preferences.proxy.server.subtitle"),
+            image: "server.rack",
+            color: .teal
+          ) {
+            HStack(spacing: 7) {
+              TextField(ProxyConfiguration.defaultHost, text: $model.settings.proxyHost)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 13, design: .monospaced))
+                .frame(width: 150)
+              PortField(value: $model.settings.proxyPort, range: 1...65535)
+            }
+          }
+        }
+
+        PreferenceDivider()
+        PreferenceRow(
+          title: L10n.tr("preferences.proxy.test.title"),
+          subtitle: L10n.tr("preferences.proxy.test.subtitle"),
+          image: "checkmark.shield.fill",
+          color: .green
+        ) {
+          Button {
+            model.testProxy()
+          } label: {
+            if model.isTestingProxy {
+              ProgressView()
+                .controlSize(.small)
+                .frame(width: 52)
+            } else {
+              Text(L10n.tr("preferences.proxy.test.action"))
+            }
+          }
+          .disabled(
+            model.isTestingProxy
+              || (model.settings.proxyMode == .manual
+                && model.settings.proxyHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+          )
+        }
+      }
+
       PreferenceGroup(title: L10n.tr("preferences.section.rpc"), footer: L10n.tr("preferences.rpc.footer")) {
         PreferenceRow(title: L10n.tr("preferences.rpc_port.title"), subtitle: L10n.tr("preferences.rpc_port.subtitle"), image: "dot.radiowaves.left.and.right", color: .blue) {
           PortField(value: $model.settings.rpcPort)

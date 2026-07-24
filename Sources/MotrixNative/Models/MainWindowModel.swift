@@ -203,6 +203,8 @@ final class MainWindowModel: ObservableObject {
   @Published private(set) var selectedTaskOptions: [String: String] = [:]
   @Published var settings = SettingsDraft()
   @Published var settingsSaved = false
+  @Published private(set) var isTestingProxy = false
+  @Published private(set) var proxyTestMessage: String?
 
   private var refreshTimer: Timer?
 
@@ -602,10 +604,60 @@ final class MainWindowModel: ObservableObject {
     }
   }
 
+  func testProxy() {
+    guard !isTestingProxy else { return }
+    isTestingProxy = true
+    proxyTestMessage = nil
+
+    let mode = settings.proxyMode
+    let scheme = settings.proxyScheme
+    let host = settings.proxyHost
+    let port = settings.proxyPort
+    Task {
+      defer { isTestingProxy = false }
+      do {
+        let result = try await ProxyTestService.test(
+          mode: mode,
+          scheme: scheme,
+          host: host,
+          port: port
+        )
+        guard let proxyAddress = result.proxyAddress else {
+          proxyTestMessage = L10n.format(
+            "preferences.proxy.test.direct",
+            result.directAddress ?? L10n.tr("common.not_found")
+          )
+          return
+        }
+
+        guard let directAddress = result.directAddress else {
+          proxyTestMessage = L10n.format("preferences.proxy.test.proxy_only", proxyAddress)
+          return
+        }
+
+        if proxyAddress == directAddress {
+          proxyTestMessage = L10n.format("preferences.proxy.test.same_ip", proxyAddress)
+        } else {
+          proxyTestMessage = L10n.format(
+            "preferences.proxy.test.different_ip",
+            directAddress,
+            proxyAddress
+          )
+        }
+      } catch {
+        proxyTestMessage = L10n.format(
+          "preferences.proxy.test.failed",
+          error.localizedDescription
+        )
+      }
+    }
+  }
+
   func resetSettings() {
     settings = SettingsDraft(config: config)
     L10n.configure(language: settings.appLanguage)
     settingsSaved = false
+    proxyTestMessage = nil
   }
 
   private func perform(_ operation: () async throws -> Void) async {
@@ -691,6 +743,10 @@ struct SettingsDraft {
   var rpcSecret = ""
   var listenPort = 21301
   var dhtListenPort = 26701
+  var proxyMode = ProxyMode.disabled
+  var proxyScheme = ProxyScheme.http
+  var proxyHost = ProxyConfiguration.defaultHost
+  var proxyPort = ProxyConfiguration.defaultPort
   var openAtLogin = false
   var taskNotification = true
   var noConfirmBeforeDeleteTask = false
@@ -727,6 +783,19 @@ struct SettingsDraft {
     rpcSecret = system["rpc-secret"] as? String ?? ""
     listenPort = Self.int(system["listen-port"], fallback: 21301)
     dhtListenPort = Self.int(system["dht-listen-port"], fallback: 26701)
+    if let rawMode = user["proxy-mode"] as? String {
+      proxyMode = ProxyMode(rawValue: rawMode) ?? .disabled
+    } else if ProxyConfiguration.hasLegacyProxy(in: system) {
+      proxyMode = .manual
+    }
+    if let legacyEndpoint = ProxyConfiguration.legacyEndpoint(in: system) {
+      proxyScheme = legacyEndpoint.scheme
+      proxyHost = legacyEndpoint.host
+      proxyPort = legacyEndpoint.port
+    }
+    proxyScheme = ProxyScheme(rawValue: user["proxy-scheme"] as? String ?? "") ?? proxyScheme
+    proxyHost = user["proxy-host"] as? String ?? proxyHost
+    proxyPort = min(65535, max(1, Self.int(user["proxy-port"], fallback: proxyPort)))
     openAtLogin = Self.bool(user["open-at-login"], fallback: false)
     taskNotification = Self.bool(user["task-notification"], fallback: true)
     noConfirmBeforeDeleteTask = Self.bool(user["no-confirm-before-delete-task"], fallback: false)
@@ -764,6 +833,10 @@ struct SettingsDraft {
     result["adaptive-connections"] = adaptiveConnections
     result["app-language"] = appLanguage
     result["seeding-enabled"] = seedingEnabled
+    result["proxy-mode"] = proxyMode.rawValue
+    result["proxy-scheme"] = proxyScheme.rawValue
+    result["proxy-host"] = proxyHost.trimmingCharacters(in: .whitespacesAndNewlines)
+    result["proxy-port"] = min(65535, max(1, proxyPort))
     if !seedingEnabled {
       result["keep-seeding"] = false
     }

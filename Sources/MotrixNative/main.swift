@@ -15,6 +15,22 @@ if CommandLine.arguments.contains("--self-check") {
     .aria2StartArguments()
     .first { $0.hasPrefix("--seed-time=") } ?? ""
   let seedingDisableReady = disabledSeedingArgument == "--seed-time=0"
+  var manualProxyUser = config.userConfig
+  manualProxyUser["proxy-mode"] = ProxyMode.manual.rawValue
+  manualProxyUser["proxy-scheme"] = ProxyScheme.http.rawValue
+  manualProxyUser["proxy-host"] = "127.0.0.1"
+  manualProxyUser["proxy-port"] = 42613
+  let manualProxyArguments = Set(config.updating(user: manualProxyUser).aria2StartArguments())
+  var disabledProxyUser = manualProxyUser
+  disabledProxyUser["proxy-mode"] = ProxyMode.disabled.rawValue
+  let disabledProxyArguments = config.updating(user: disabledProxyUser).aria2StartArguments()
+  let proxyArgumentsReady = manualProxyArguments.contains("--all-proxy=http://127.0.0.1:42613")
+    && manualProxyArguments.contains("--no-proxy=localhost,127.0.0.1,::1")
+    && !disabledProxyArguments.contains { argument in
+      argument.hasPrefix("--all-proxy=")
+        || argument.hasPrefix("--http-proxy=")
+        || argument.hasPrefix("--https-proxy=")
+    }
   var oversizedConnectionSystem = config.systemConfig
   oversizedConnectionSystem["max-connection-per-server"] = 128
   oversizedConnectionSystem["split"] = 128
@@ -156,6 +172,7 @@ if CommandLine.arguments.contains("--self-check") {
     "supportDirectoryReady": supportReady,
     "controlFileMappingReady": controlFileMappingReady,
     "pieceBitfieldReady": pieceBitfieldReady,
+    "proxyArgumentsReady": proxyArgumentsReady,
     "trackerNormalizationReady": trackerNormalizationReady,
     "configuredTrackerArgumentReady": configuredTrackerArgumentReady,
     "cleanFileLoggingReady": cleanFileLoggingReady,
@@ -168,7 +185,7 @@ if CommandLine.arguments.contains("--self-check") {
   let data = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
   FileHandle.standardOutput.write(data)
   FileHandle.standardOutput.write(Data("\n".utf8))
-  exit(binaryReady && aria2BuildReady && configReady && supportReady && controlFileMappingReady && pieceBitfieldReady && trackerNormalizationReady && configuredTrackerArgumentReady && cleanFileLoggingReady && logRotationReady && localizationReady && languageSwitchReady && seedingDisableReady && adaptiveStartReady && adaptiveLimitReady && adaptiveProfileLimitReady ? 0 : 1)
+  exit(binaryReady && aria2BuildReady && configReady && supportReady && controlFileMappingReady && pieceBitfieldReady && trackerNormalizationReady && configuredTrackerArgumentReady && cleanFileLoggingReady && logRotationReady && localizationReady && languageSwitchReady && seedingDisableReady && adaptiveStartReady && adaptiveLimitReady && adaptiveProfileLimitReady && proxyArgumentsReady ? 0 : 1)
 }
 
 let app = NSApplication.shared

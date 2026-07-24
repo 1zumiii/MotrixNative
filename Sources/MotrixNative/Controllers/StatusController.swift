@@ -334,6 +334,7 @@ final class StatusController: NSObject, NSMenuDelegate {
 
   private func taskMenuItem(_ task: Aria2Task) -> NSMenuItem {
     let item = menuItem(title: taskTitle(task), systemImage: taskImageName(task), action: nil)
+    item.toolTip = task.name
     let submenu = NSMenu()
 
     submenu.addItem(NSMenuItem(title: L10n.tr("task.action.details"), action: #selector(openTaskDetails(_:)), keyEquivalent: "", target: self, representedObject: task.id))
@@ -361,8 +362,44 @@ final class StatusController: NSObject, NSMenuDelegate {
 
   private func taskTitle(_ task: Aria2Task) -> String {
     let percent = Int(task.progress * 100)
-    let name = task.name.count > 38 ? String(task.name.prefix(37)) + "…" : task.name
-    return "\(name)   \(percent)% · \(task.localizedStatus)"
+    let suffix = "   \(percent)% · \(task.localizedStatus)"
+    let availableNameWidth = max(80, 285 - menuTextWidth(suffix))
+    return "\(truncatedMenuText(task.name, maximumWidth: availableNameWidth))\(suffix)"
+  }
+
+  private func truncatedMenuText(_ text: String, maximumWidth: CGFloat) -> String {
+    guard menuTextWidth(text) > maximumWidth else {
+      return text
+    }
+
+    let characters = Array(text)
+    var lowerBound = 0
+    var upperBound = max(0, characters.count - 1)
+    var result = "…"
+
+    while lowerBound <= upperBound {
+      let retainedCount = (lowerBound + upperBound) / 2
+      let prefixCount = (retainedCount + 1) / 2
+      let suffixCount = retainedCount / 2
+      let candidate = String(characters.prefix(prefixCount))
+        + "…"
+        + String(characters.suffix(suffixCount))
+
+      if menuTextWidth(candidate) <= maximumWidth {
+        result = candidate
+        lowerBound = retainedCount + 1
+      } else {
+        upperBound = retainedCount - 1
+      }
+    }
+
+    return result
+  }
+
+  private func menuTextWidth(_ text: String) -> CGFloat {
+    (text as NSString).size(withAttributes: [
+      .font: NSFont.menuFont(ofSize: NSFont.systemFontSize)
+    ]).width
   }
 
   private func taskDetail(_ task: Aria2Task) -> String {

@@ -167,6 +167,7 @@ struct MotrixConfig {
     engineConfig["split"] = Aria2Limits.clampConnections(
       intValue(engineConfig["split"]) ?? Aria2Limits.maximumConnectionsPerServer
     )
+    ProxyConfiguration.apply(to: &engineConfig, userConfig: userConfig)
     let seedingEnabled = boolValue(userConfig["seeding-enabled"])
       ?? ((intValue(engineConfig["seed-time"]) ?? 60) != 0)
     if !seedingEnabled {

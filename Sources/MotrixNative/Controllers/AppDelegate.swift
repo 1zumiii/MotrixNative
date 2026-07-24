@@ -54,7 +54,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     applicationMenu.addItem(quitItem)
     applicationMenuItem.submenu = applicationMenu
     mainMenu.addItem(applicationMenuItem)
+
+    let editMenuItem = NSMenuItem(title: L10n.tr("menu.edit"), action: nil, keyEquivalent: "")
+    let editMenu = NSMenu(title: L10n.tr("menu.edit"))
+    editMenu.addItem(commandItem(L10n.tr("action.undo"), action: Selector(("undo:")), keyEquivalent: "z"))
+    editMenu.addItem(commandItem(
+      L10n.tr("action.redo"),
+      action: Selector(("redo:")),
+      keyEquivalent: "z",
+      modifiers: [.command, .shift]
+    ))
+    editMenu.addItem(NSMenuItem.separator())
+    editMenu.addItem(commandItem(L10n.tr("action.cut"), action: #selector(NSText.cut(_:)), keyEquivalent: "x"))
+    editMenu.addItem(commandItem(L10n.tr("action.copy"), action: #selector(NSText.copy(_:)), keyEquivalent: "c"))
+    editMenu.addItem(commandItem(L10n.tr("action.paste"), action: #selector(NSText.paste(_:)), keyEquivalent: "v"))
+    editMenu.addItem(NSMenuItem.separator())
+    editMenu.addItem(commandItem(L10n.tr("action.select_all"), action: #selector(NSResponder.selectAll(_:)), keyEquivalent: "a"))
+    editMenuItem.submenu = editMenu
+    mainMenu.addItem(editMenuItem)
+
     NSApp.mainMenu = mainMenu
+  }
+
+  @MainActor
+  private func commandItem(
+    _ title: String,
+    action: Selector,
+    keyEquivalent: String,
+    modifiers: NSEvent.ModifierFlags = [.command]
+  ) -> NSMenuItem {
+    let item = NSMenuItem(title: title, action: action, keyEquivalent: keyEquivalent)
+    item.keyEquivalentModifierMask = modifiers
+    return item
   }
 
   func userNotificationCenter(
